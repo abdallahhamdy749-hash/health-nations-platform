@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -8,8 +9,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-
-import { useRouter } from "next/navigation";
 
 import {
   Activity,
@@ -22,6 +21,7 @@ import {
   Globe2,
   HeartPulse,
   Home,
+  MessageCircle,
   PackageCheck,
   RefreshCw,
   Settings,
@@ -35,6 +35,10 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 type ProductKind =
   | "equipment"
@@ -79,7 +83,6 @@ type SupplierProfile = {
   company_name_ar: string | null;
 
   slug: string | null;
-
   country: string | null;
 
   status: string | null;
@@ -100,7 +103,12 @@ type ServiceCount = {
   homecare: number | null;
   maintenance: number | null;
   importRequests: number | null;
+  marketplaceInquiries: number | null;
 };
+
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function getErrorMessage(
   error: unknown
@@ -136,16 +144,19 @@ function getErrorMessage(
   return "Unknown error";
 }
 
+/* =========================================================
+   ADMIN PAGE
+========================================================= */
+
 export default function AdminPage() {
   const router = useRouter();
 
   const [
     accessState,
     setAccessState,
-  ] =
-    useState<AccessState>(
-      "checking"
-    );
+  ] = useState<AccessState>(
+    "checking"
+  );
 
   const [
     products,
@@ -168,10 +179,13 @@ export default function AdminPage() {
     homecare: null,
     maintenance: null,
     importRequests: null,
+    marketplaceInquiries: null,
   });
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
   const [
     actionProductId,
@@ -185,11 +199,9 @@ export default function AdminPage() {
     setErrorMessage,
   ] = useState("");
 
-  /*
-   * =========================================================
-   * ADMIN ACCESS
-   * =========================================================
-   */
+  /* =======================================================
+     ADMIN ACCESS
+  ======================================================= */
 
   const checkAdminAccess =
     useCallback(async () => {
@@ -269,17 +281,17 @@ export default function AdminPage() {
       }
     }, [router]);
 
-  /*
-   * =========================================================
-   * SAFE TABLE COUNT
-   * =========================================================
-   */
+  /* =======================================================
+     SAFE TABLE COUNT
+  ======================================================= */
 
   const getTableCount =
     useCallback(
       async (
         tableName: string
-      ): Promise<number | null> => {
+      ): Promise<
+        number | null
+      > => {
         try {
           const {
             count,
@@ -301,18 +313,23 @@ export default function AdminPage() {
           }
 
           return count ?? 0;
-        } catch {
+        } catch (
+          error: unknown
+        ) {
+          console.warn(
+            `Unable to count ${tableName}:`,
+            error
+          );
+
           return null;
         }
       },
       []
     );
 
-  /*
-   * =========================================================
-   * LOAD DASHBOARD
-   * =========================================================
-   */
+  /* =======================================================
+     LOAD DASHBOARD
+  ======================================================= */
 
   const loadDashboard =
     useCallback(async () => {
@@ -326,6 +343,7 @@ export default function AdminPage() {
           homecareCount,
           maintenanceCount,
           importCount,
+          marketplaceInquiriesCount,
         ] =
           await Promise.all([
             supabase
@@ -384,6 +402,10 @@ export default function AdminPage() {
 
             getTableCount(
               "import_requests"
+            ),
+
+            getTableCount(
+              "marketplace_inquiries"
             ),
           ]);
 
@@ -447,10 +469,15 @@ export default function AdminPage() {
         setServiceCount({
           homecare:
             homecareCount,
+
           maintenance:
             maintenanceCount,
+
           importRequests:
             importCount,
+
+          marketplaceInquiries:
+            marketplaceInquiriesCount,
         });
       } catch (
         error: unknown
@@ -472,11 +499,9 @@ export default function AdminPage() {
       }
     }, [getTableCount]);
 
-  /*
-   * =========================================================
-   * INITIAL LOAD
-   * =========================================================
-   */
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
 
   useEffect(() => {
     const timer =
@@ -503,11 +528,9 @@ export default function AdminPage() {
     loadDashboard,
   ]);
 
-  /*
-   * =========================================================
-   * COUNTS
-   * =========================================================
-   */
+  /* =======================================================
+     PRODUCT COUNTS
+  ======================================================= */
 
   const approvedProducts =
     useMemo(
@@ -567,6 +590,10 @@ export default function AdminPage() {
       [products]
     );
 
+  /* =======================================================
+     SUPPLIER COUNTS
+  ======================================================= */
+
   const verifiedSuppliers =
     useMemo(
       () =>
@@ -598,11 +625,9 @@ export default function AdminPage() {
       ).size;
     }, [suppliers]);
 
-  /*
-   * =========================================================
-   * UPDATE PRODUCT
-   * =========================================================
-   */
+  /* =======================================================
+     UPDATE PRODUCT STATUS
+  ======================================================= */
 
   const updateProductStatus =
     async (
@@ -672,11 +697,9 @@ export default function AdminPage() {
       }
     };
 
-  /*
-   * =========================================================
-   * CHECKING
-   * =========================================================
-   */
+  /* =======================================================
+     CHECKING ACCESS
+  ======================================================= */
 
   if (
     accessState ===
@@ -703,11 +726,9 @@ export default function AdminPage() {
     );
   }
 
-  /*
-   * =========================================================
-   * DENIED
-   * =========================================================
-   */
+  /* =======================================================
+     ACCESS DENIED
+  ======================================================= */
 
   if (
     accessState ===
@@ -741,19 +762,16 @@ export default function AdminPage() {
             }
             className="mt-7 rounded-2xl bg-slate-950 px-6 py-3 font-bold text-white transition hover:bg-slate-800"
           >
-            العودة للصفحة
-            الرئيسية
+            العودة للصفحة الرئيسية
           </button>
         </div>
       </main>
     );
   }
 
-  /*
-   * =========================================================
-   * DASHBOARD
-   * =========================================================
-   */
+  /* =======================================================
+     DASHBOARD
+  ======================================================= */
 
   return (
     <main
@@ -761,6 +779,8 @@ export default function AdminPage() {
       className="min-h-screen bg-slate-100 p-5 text-slate-900 md:p-10"
     >
       <div className="mx-auto max-w-7xl">
+        {/* HEADER */}
+
         <header className="overflow-hidden rounded-[32px] bg-slate-950 p-7 text-white md:p-9">
           <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -778,14 +798,12 @@ export default function AdminPage() {
               </div>
 
               <h1 className="mt-4 text-3xl font-black md:text-4xl">
-                Launch Control
-                Center
+                Launch Control Center
               </h1>
 
               <p className="mt-3 max-w-2xl leading-7 text-slate-300">
-                مركز إدارة ومتابعة
-                منصة Health Nations
-                قبل وبعد الإطلاق.
+                مركز إدارة ومتابعة منصة
+                Health Nations العالمية.
               </p>
             </div>
 
@@ -823,6 +841,8 @@ export default function AdminPage() {
             </div>
           </div>
         </header>
+
+        {/* ERROR */}
 
         {errorMessage && (
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
@@ -871,13 +891,29 @@ export default function AdminPage() {
             value={
               spareParts.length
             }
-            detail="Structured spare parts"
+            detail="Medical spare parts"
           />
         </section>
 
         {/* SERVICE STATS */}
 
-        <section className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <DashboardCard
+            icon={
+              <MessageCircle />
+            }
+            label="استفسارات السوق"
+            value={
+              serviceCount.marketplaceInquiries ??
+              "—"
+            }
+            detail="Marketplace inquiries"
+            attention={
+              (serviceCount.marketplaceInquiries ??
+                0) > 0
+            }
+          />
+
           <DashboardCard
             icon={
               <HeartPulse />
@@ -918,7 +954,7 @@ export default function AdminPage() {
           />
         </section>
 
-        {/* QUICK CONTROL */}
+        {/* PLATFORM CONTROL */}
 
         <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm md:p-7">
           <div>
@@ -942,6 +978,25 @@ export default function AdminPage() {
             />
 
             <ControlLink
+              href="/admin/suppliers"
+              icon={<Users />}
+              title="إدارة الموردين"
+              description={`${suppliers.length} suppliers`}
+            />
+
+            <ControlLink
+              href="/admin/marketplace-inquiries"
+              icon={
+                <MessageCircle />
+              }
+              title="Marketplace Inquiries"
+              description={`${
+                serviceCount.marketplaceInquiries ??
+                0
+              } customer inquiries`}
+            />
+
+            <ControlLink
               href="/store"
               icon={
                 <ShoppingBag />
@@ -956,14 +1011,6 @@ export default function AdminPage() {
               icon={<FileText />}
               title="Catalog Library"
               description={`${catalogProducts.length} catalogs`}
-              external
-            />
-
-            <ControlLink
-              href="/suppliers"
-              icon={<Users />}
-              title="Suppliers"
-              description={`${suppliers.length} suppliers`}
               external
             />
 
@@ -1010,8 +1057,7 @@ export default function AdminPage() {
               </p>
 
               <h2 className="mt-2 text-2xl font-black">
-                حالة المحتوى
-                الأساسي
+                حالة المحتوى الأساسي
               </h2>
             </div>
 
@@ -1079,13 +1125,13 @@ export default function AdminPage() {
                   rejectedProducts.length
                 }
               </strong>{" "}
-              منتج مرفوض محفوظ في
-              قاعدة البيانات.
+              منتج مرفوض محفوظ في قاعدة
+              البيانات.
             </p>
           )}
         </section>
 
-        {/* PENDING */}
+        {/* PENDING PRODUCTS */}
 
         {pendingProducts.length >
           0 && (
@@ -1093,8 +1139,7 @@ export default function AdminPage() {
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-2xl font-black">
-                  منتجات بانتظار
-                  الموافقة
+                  منتجات بانتظار الموافقة
                 </h2>
 
                 <p className="mt-1 text-slate-500">
@@ -1109,6 +1154,7 @@ export default function AdminPage() {
                 className="inline-flex items-center gap-2 font-black text-blue-700"
               >
                 إدارة كل المنتجات
+
                 <ChevronLeft
                   size={18}
                 />
@@ -1172,8 +1218,8 @@ export default function AdminPage() {
               </h2>
 
               <p className="mt-1 text-slate-500">
-                آخر المنتجات المسجلة
-                في المنصة.
+                آخر المنتجات المسجلة في
+                المنصة.
               </p>
             </div>
 
@@ -1182,6 +1228,7 @@ export default function AdminPage() {
               className="inline-flex items-center gap-2 font-black text-blue-700"
             >
               عرض الكل
+
               <ChevronLeft
                 size={18}
               />
@@ -1196,8 +1243,7 @@ export default function AdminPage() {
               />
 
               <p className="mt-4 text-slate-500">
-                جاري تحميل
-                البيانات...
+                جاري تحميل البيانات...
               </p>
             </div>
           ) : products.length ===
@@ -1209,8 +1255,7 @@ export default function AdminPage() {
               />
 
               <p className="mt-4 font-bold text-slate-600">
-                لا توجد منتجات
-                مسجلة.
+                لا توجد منتجات مسجلة.
               </p>
             </div>
           ) : (
@@ -1350,6 +1395,7 @@ export default function AdminPage() {
                                 className="inline-flex items-center gap-1 font-bold text-blue-700 hover:underline"
                               >
                                 فتح
+
                                 <ExternalLink
                                   size={
                                     14
@@ -1372,6 +1418,10 @@ export default function AdminPage() {
     </main>
   );
 }
+
+/* =========================================================
+   PRODUCT CARD
+========================================================= */
 
 function ProductCard({
   product,
@@ -1449,7 +1499,7 @@ function ProductCard({
         </p>
 
         {product.product_kind ===
-          "spare_part" ? (
+        "spare_part" ? (
           <>
             <p>
               <strong>
@@ -1509,7 +1559,9 @@ function ProductCard({
           <FileText
             size={17}
           />
+
           مراجعة الكتالوج
+
           <ExternalLink
             size={14}
           />
@@ -1546,12 +1598,17 @@ function ProductCard({
           <XCircle
             size={18}
           />
+
           رفض المنتج
         </button>
       </div>
     </article>
   );
 }
+
+/* =========================================================
+   CONTROL LINK
+========================================================= */
 
 function ControlLink({
   href,
@@ -1597,6 +1654,10 @@ function ControlLink({
     </Link>
   );
 }
+
+/* =========================================================
+   DASHBOARD CARD
+========================================================= */
 
 function DashboardCard({
   icon,
@@ -1646,6 +1707,10 @@ function DashboardCard({
   );
 }
 
+/* =========================================================
+   HEALTH ITEM
+========================================================= */
+
 function HealthItem({
   label,
   value,
@@ -1688,6 +1753,10 @@ function HealthItem({
     </div>
   );
 }
+
+/* =========================================================
+   PRODUCT KIND
+========================================================= */
 
 function ProductKindBadge({
   kind,
@@ -1738,6 +1807,10 @@ function formatProductKind(
 
   return "Medical Equipment";
 }
+
+/* =========================================================
+   STATUS
+========================================================= */
 
 function StatusBadge({
   status,
