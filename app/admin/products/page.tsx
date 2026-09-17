@@ -1,24 +1,33 @@
 "use client";
 
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import Link from "next/link";
+
 import {
   AlertCircle,
   ArrowLeft,
+  Building2,
   CheckCircle2,
   ExternalLink,
   FileText,
+  Globe2,
   Loader2,
+  Package,
   PackageCheck,
+  PauseCircle,
   RefreshCw,
   Search,
+  Settings,
+  Star,
+  Tag,
   XCircle,
 } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
 
 type ProductStatus =
@@ -28,200 +37,268 @@ type ProductStatus =
   | "draft"
   | "suspended";
 
+type ProductKind =
+  | "equipment"
+  | "consumable"
+  | "spare_part";
+
+type PartCondition =
+  | "new"
+  | "refurbished"
+  | "used";
+
 type SupplierProfile = {
   user_id: string;
   company_name_en: string | null;
   company_name_ar: string | null;
   slug: string | null;
+  country: string | null;
+  city: string | null;
   verified: boolean | null;
 };
 
 type SupplierProduct = {
   id: number;
   supplier_id: string;
-  name_en: string;
+
+  product_kind: ProductKind | null;
+
+  name_en: string | null;
   name_ar: string | null;
+
   category: string | null;
   brand: string | null;
   model: string | null;
+
+  part_number: string | null;
+  manufacturer: string | null;
+  compatible_device: string | null;
+  part_condition: PartCondition | null;
+
   image_url: string | null;
   catalog_url: string | null;
+
   sale_price: number | null;
   currency: string | null;
+
   stock: number | null;
+
   available_for_sale: boolean | null;
   available_for_rental: boolean | null;
+
   monthly_rental_price: number | null;
+
   status: string | null;
   featured: boolean | null;
+
   created_at: string | null;
   updated_at: string | null;
 };
 
-type ProductWithSupplier = SupplierProduct & {
-  supplier: SupplierProfile | null;
-};
+type ProductWithSupplier =
+  SupplierProduct & {
+    supplier: SupplierProfile | null;
+  };
 
 type StatusFilter =
   | "all"
-  | "pending"
-  | "approved"
-  | "rejected";
+  | ProductStatus;
+
+type KindFilter =
+  | "all"
+  | ProductKind;
 
 export default function AdminProductsPage() {
-  const [products, setProducts] = useState<
-    ProductWithSupplier[]
-  >([]);
+  const [products, setProducts] =
+    useState<ProductWithSupplier[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<
-    number | null
-  >(null);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>("pending");
+  const [updatingId, setUpdatingId] =
+    useState<number | null>(null);
 
-  const [errorMessage, setErrorMessage] =
-    useState("");
-  const [successMessage, setSuccessMessage] =
+  const [search, setSearch] =
     useState("");
 
-  const loadProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      setErrorMessage("");
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState<StatusFilter>(
+    "pending"
+  );
 
-      const [
-        productsResult,
-        suppliersResult,
-      ] = await Promise.all([
-        supabase
-          .from("supplier_products")
-          .select(`
-            id,
-            supplier_id,
-            name_en,
-            name_ar,
-            category,
-            brand,
-            model,
-            image_url,
-            catalog_url,
-            sale_price,
-            currency,
-            stock,
-            available_for_sale,
-            available_for_rental,
-            monthly_rental_price,
-            status,
-            featured,
-            created_at,
-            updated_at
-          `)
-          .order("created_at", {
-            ascending: false,
-          }),
+  const [kindFilter, setKindFilter] =
+    useState<KindFilter>("all");
 
-        supabase
-          .from("supplier_profiles")
-          .select(`
-            user_id,
-            company_name_en,
-            company_name_ar,
-            slug,
-            verified
-          `),
-      ]);
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
 
-      if (productsResult.error) {
-        throw new Error(
-          getSupabaseError(
-            productsResult.error,
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState("");
+
+  const loadProducts =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+        setErrorMessage("");
+
+        const [
+          productsResult,
+          suppliersResult,
+        ] = await Promise.all([
+          supabase
+            .from("supplier_products")
+            .select(`
+              id,
+              supplier_id,
+              product_kind,
+              name_en,
+              name_ar,
+              category,
+              brand,
+              model,
+              part_number,
+              manufacturer,
+              compatible_device,
+              part_condition,
+              image_url,
+              catalog_url,
+              sale_price,
+              currency,
+              stock,
+              available_for_sale,
+              available_for_rental,
+              monthly_rental_price,
+              status,
+              featured,
+              created_at,
+              updated_at
+            `)
+            .order("created_at", {
+              ascending: false,
+            }),
+
+          supabase
+            .from("supplier_profiles")
+            .select(`
+              user_id,
+              company_name_en,
+              company_name_ar,
+              slug,
+              country,
+              city,
+              verified
+            `),
+        ]);
+
+        if (productsResult.error) {
+          throw new Error(
+            getSupabaseError(
+              productsResult.error,
+              "Unable to load products."
+            )
+          );
+        }
+
+        if (suppliersResult.error) {
+          throw new Error(
+            getSupabaseError(
+              suppliersResult.error,
+              "Unable to load suppliers."
+            )
+          );
+        }
+
+        const supplierMap =
+          new Map<
+            string,
+            SupplierProfile
+          >();
+
+        (
+          (suppliersResult.data ??
+            []) as SupplierProfile[]
+        ).forEach((supplier) => {
+          supplierMap.set(
+            supplier.user_id,
+            supplier
+          );
+        });
+
+        const combinedProducts = (
+          (productsResult.data ??
+            []) as SupplierProduct[]
+        ).map((product) => ({
+          ...product,
+          supplier:
+            supplierMap.get(
+              product.supplier_id
+            ) ?? null,
+        }));
+
+        setProducts(
+          combinedProducts
+        );
+      } catch (error: unknown) {
+        setErrorMessage(
+          getErrorMessage(
+            error,
             "Unable to load products."
           )
         );
+      } finally {
+        setLoading(false);
       }
-
-      if (suppliersResult.error) {
-        throw new Error(
-          getSupabaseError(
-            suppliersResult.error,
-            "Unable to load suppliers."
-          )
-        );
-      }
-
-      const supplierMap = new Map<
-        string,
-        SupplierProfile
-      >();
-
-      (
-        (suppliersResult.data ??
-          []) as SupplierProfile[]
-      ).forEach((supplier) => {
-        supplierMap.set(
-          supplier.user_id,
-          supplier
-        );
-      });
-
-      const combinedProducts = (
-        (productsResult.data ??
-          []) as SupplierProduct[]
-      ).map((product) => ({
-        ...product,
-        supplier:
-          supplierMap.get(product.supplier_id) ??
-          null,
-      }));
-
-      setProducts(combinedProducts);
-    } catch (error: unknown) {
-      setErrorMessage(
-        getErrorMessage(
-          error,
-          "Unable to load products."
-        )
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadProducts();
-    }, 0);
+    const timer =
+      window.setTimeout(() => {
+        void loadProducts();
+      }, 0);
 
     return () => {
       window.clearTimeout(timer);
     };
   }, [loadProducts]);
 
-  async function updateStatus(
+  async function updateProduct(
     product: ProductWithSupplier,
-    newStatus: "approved" | "rejected"
+    values: {
+      status?: ProductStatus;
+      featured?: boolean;
+    },
+    successText: string
   ) {
     try {
       setUpdatingId(product.id);
       setErrorMessage("");
       setSuccessMessage("");
 
-      const { error } = await supabase
-        .from("supplier_products")
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", product.id);
+      const updatedAt =
+        new Date().toISOString();
+
+      const { error } =
+        await supabase
+          .from(
+            "supplier_products"
+          )
+          .update({
+            ...values,
+            updated_at: updatedAt,
+          })
+          .eq("id", product.id);
 
       if (error) {
         throw new Error(
           getSupabaseError(
             error,
-            `Unable to ${newStatus} product.`
+            "Unable to update product."
           )
         );
       }
@@ -231,24 +308,22 @@ export default function AdminProductsPage() {
           item.id === product.id
             ? {
                 ...item,
-                status: newStatus,
+                ...values,
                 updated_at:
-                  new Date().toISOString(),
+                  updatedAt,
               }
             : item
         )
       );
 
       setSuccessMessage(
-        newStatus === "approved"
-          ? `تم اعتماد المنتج: ${product.name_en}`
-          : `تم رفض المنتج: ${product.name_en}`
+        successText
       );
     } catch (error: unknown) {
       setErrorMessage(
         getErrorMessage(
           error,
-          "Unable to update product status."
+          "Unable to update product."
         )
       );
     } finally {
@@ -256,72 +331,137 @@ export default function AdminProductsPage() {
     }
   }
 
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = search
-      .trim()
-      .toLowerCase();
+  const filteredProducts =
+    useMemo(() => {
+      const normalizedSearch =
+        search
+          .trim()
+          .toLowerCase();
 
-    return products.filter((product) => {
-      const normalizedStatus =
-        product.status?.toLowerCase() || "draft";
+      return products.filter(
+        (product) => {
+          const status =
+            normalizeStatus(
+              product.status
+            );
 
-      if (
-        statusFilter !== "all" &&
-        normalizedStatus !== statusFilter
-      ) {
-        return false;
-      }
+          const kind =
+            getEffectiveProductKind(
+              product
+            );
 
-      if (!normalizedSearch) {
-        return true;
-      }
+          if (
+            statusFilter !==
+              "all" &&
+            status !== statusFilter
+          ) {
+            return false;
+          }
 
-      const supplierName =
-        product.supplier?.company_name_en ||
-        product.supplier?.company_name_ar ||
-        "";
+          if (
+            kindFilter !== "all" &&
+            kind !== kindFilter
+          ) {
+            return false;
+          }
 
-      const searchableText = [
-        product.name_en,
-        product.name_ar,
-        product.category,
-        product.brand,
-        product.model,
-        supplierName,
-        String(product.id),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+          if (!normalizedSearch) {
+            return true;
+          }
 
-      return searchableText.includes(
-        normalizedSearch
+          const supplierName =
+            [
+              product.supplier
+                ?.company_name_en,
+              product.supplier
+                ?.company_name_ar,
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+          const searchableText = [
+            String(product.id),
+            product.name_en,
+            product.name_ar,
+            product.category,
+            product.brand,
+            product.model,
+            product.part_number,
+            product.manufacturer,
+            product.compatible_device,
+            product.part_condition,
+            supplierName,
+            product.supplier?.country,
+            product.supplier?.city,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          return searchableText.includes(
+            normalizedSearch
+          );
+        }
       );
-    });
-  }, [products, search, statusFilter]);
+    }, [
+      products,
+      search,
+      statusFilter,
+      kindFilter,
+    ]);
 
-  const pendingCount = products.filter(
-    (product) =>
-      product.status?.toLowerCase() ===
-      "pending"
-  ).length;
+  const stats = useMemo(() => {
+    return {
+      total: products.length,
 
-  const approvedCount = products.filter(
-    (product) =>
-      product.status?.toLowerCase() ===
-      "approved"
-  ).length;
+      pending: products.filter(
+        (product) =>
+          normalizeStatus(
+            product.status
+          ) === "pending"
+      ).length,
 
-  const rejectedCount = products.filter(
-    (product) =>
-      product.status?.toLowerCase() ===
-      "rejected"
-  ).length;
+      approved: products.filter(
+        (product) =>
+          normalizeStatus(
+            product.status
+          ) === "approved"
+      ).length,
 
-  const catalogCount = products.filter(
-    (product) =>
-      Boolean(product.catalog_url?.trim())
-  ).length;
+      rejected: products.filter(
+        (product) =>
+          normalizeStatus(
+            product.status
+          ) === "rejected"
+      ).length,
+
+      suspended: products.filter(
+        (product) =>
+          normalizeStatus(
+            product.status
+          ) === "suspended"
+      ).length,
+
+      spareParts: products.filter(
+        (product) =>
+          getEffectiveProductKind(
+            product
+          ) === "spare_part"
+      ).length,
+
+      featured: products.filter(
+        (product) =>
+          product.featured === true
+      ).length,
+
+      catalogs: products.filter(
+        (product) =>
+          Boolean(
+            product.catalog_url?.trim()
+          )
+      ).length,
+    };
+  }, [products]);
 
   return (
     <main className="min-h-screen bg-slate-100 p-4 text-slate-900 md:p-8">
@@ -335,23 +475,32 @@ export default function AdminProductsPage() {
         </Link>
 
         <header className="rounded-[32px] bg-slate-950 p-7 text-white shadow-sm md:p-10">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="font-bold uppercase tracking-wider text-teal-400">
-                Health Nations Admin
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-teal-500/15 px-3 py-1 text-xs font-black uppercase tracking-wider text-teal-300">
+                  Health Nations
+                </span>
 
-              <h1 className="mt-2 text-3xl font-black md:text-4xl">
-                Product Approvals
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-3 py-1 text-xs font-black text-blue-300">
+                  <Globe2 size={14} />
+                  Global Marketplace
+                </span>
+              </div>
+
+              <h1 className="mt-4 text-3xl font-black md:text-5xl">
+                Product Management
               </h1>
 
               <p
-                className="mt-3 max-w-2xl text-slate-300"
+                className="mt-3 max-w-3xl text-slate-300"
                 dir="rtl"
               >
-                راجع منتجات الموردين
+                إدارة واعتماد منتجات
+                الموردين وقطع الغيار
                 والكتالوجات قبل ظهورها
-                للعملاء في المنصة.
+                في منصة صحة الأمم
+                العالمية.
               </p>
             </div>
 
@@ -361,7 +510,7 @@ export default function AdminProductsPage() {
                 void loadProducts()
               }
               disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-5 py-3 font-bold text-white transition hover:bg-teal-400 disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-5 py-3 font-black text-white transition hover:bg-teal-400 disabled:opacity-60"
             >
               <RefreshCw
                 size={19}
@@ -372,15 +521,23 @@ export default function AdminProductsPage() {
                 }
               />
 
-              Refresh
+              Refresh Products
             </button>
           </div>
         </header>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="Pending"
-            value={pendingCount}
+            label="Total Products"
+            value={stats.total}
+            icon={
+              <Package size={22} />
+            }
+          />
+
+          <StatCard
+            label="Pending Review"
+            value={stats.pending}
             icon={
               <Loader2 size={22} />
             }
@@ -388,23 +545,51 @@ export default function AdminProductsPage() {
 
           <StatCard
             label="Approved"
-            value={approvedCount}
+            value={stats.approved}
             icon={
-              <PackageCheck size={22} />
+              <PackageCheck
+                size={22}
+              />
+            }
+          />
+
+          <StatCard
+            label="Spare Parts"
+            value={stats.spareParts}
+            icon={
+              <Settings size={22} />
             }
           />
 
           <StatCard
             label="Rejected"
-            value={rejectedCount}
+            value={stats.rejected}
             icon={
               <XCircle size={22} />
             }
           />
 
           <StatCard
+            label="Suspended"
+            value={stats.suspended}
+            icon={
+              <PauseCircle
+                size={22}
+              />
+            }
+          />
+
+          <StatCard
+            label="Featured"
+            value={stats.featured}
+            icon={
+              <Star size={22} />
+            }
+          />
+
+          <StatCard
             label="Catalogs"
-            value={catalogCount}
+            value={stats.catalogs}
             icon={
               <FileText size={22} />
             }
@@ -444,20 +629,20 @@ export default function AdminProductsPage() {
         )}
 
         <section className="mt-6 rounded-3xl bg-white p-5 shadow-sm md:p-7">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-5">
             <div>
               <h2 className="text-2xl font-black">
-                Supplier Products
+                Global Supplier Products
               </h2>
 
               <p className="mt-1 text-slate-500">
-                Review products before
-                publishing them to the
-                marketplace.
+                Review, approve, suspend and
+                feature supplier products
+                across the marketplace.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px]">
               <div className="relative">
                 <Search
                   size={18}
@@ -472,8 +657,8 @@ export default function AdminProductsPage() {
                       event.target.value
                     )
                   }
-                  placeholder="Search products..."
-                  className="w-full rounded-2xl border border-slate-200 py-3 pl-11 pr-4 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100 sm:w-72"
+                  placeholder="Search Product ID, name, Part Number, brand, supplier..."
+                  className="w-full rounded-2xl border border-slate-200 py-3 pl-11 pr-4 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
 
@@ -499,11 +684,58 @@ export default function AdminProductsPage() {
                   Rejected
                 </option>
 
+                <option value="suspended">
+                  Suspended
+                </option>
+
+                <option value="draft">
+                  Draft
+                </option>
+
                 <option value="all">
                   All Statuses
                 </option>
               </select>
+
+              <select
+                value={kindFilter}
+                onChange={(event) =>
+                  setKindFilter(
+                    event.target
+                      .value as KindFilter
+                  )
+                }
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-bold outline-none focus:border-blue-700"
+              >
+                <option value="all">
+                  All Product Types
+                </option>
+
+                <option value="equipment">
+                  Medical Equipment
+                </option>
+
+                <option value="consumable">
+                  Consumables
+                </option>
+
+                <option value="spare_part">
+                  Spare Parts
+                </option>
+              </select>
             </div>
+
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <strong>
+                {filteredProducts.length}
+              </strong>{" "}
+              of{" "}
+              <strong>
+                {products.length}
+              </strong>{" "}
+              products
+            </p>
           </div>
 
           {loading ? (
@@ -511,7 +743,8 @@ export default function AdminProductsPage() {
               <Loader2 className="animate-spin" />
               Loading products...
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : filteredProducts.length ===
+            0 ? (
             <div className="py-20 text-center">
               <PackageCheck
                 size={46}
@@ -523,8 +756,8 @@ export default function AdminProductsPage() {
               </h3>
 
               <p className="mt-2 text-slate-500">
-                There are no products
-                matching this filter.
+                No products match the
+                selected filters.
               </p>
             </div>
           ) : (
@@ -539,15 +772,59 @@ export default function AdminProductsPage() {
                       product.id
                     }
                     onApprove={() =>
-                      void updateStatus(
+                      void updateProduct(
                         product,
-                        "approved"
+                        {
+                          status:
+                            "approved",
+                        },
+                        `تم اعتماد المنتج: ${
+                          product.name_en ||
+                          product.name_ar ||
+                          product.id
+                        }`
                       )
                     }
                     onReject={() =>
-                      void updateStatus(
+                      void updateProduct(
                         product,
-                        "rejected"
+                        {
+                          status:
+                            "rejected",
+                          featured: false,
+                        },
+                        `تم رفض المنتج: ${
+                          product.name_en ||
+                          product.name_ar ||
+                          product.id
+                        }`
+                      )
+                    }
+                    onSuspend={() =>
+                      void updateProduct(
+                        product,
+                        {
+                          status:
+                            "suspended",
+                          featured: false,
+                        },
+                        `تم إيقاف المنتج: ${
+                          product.name_en ||
+                          product.name_ar ||
+                          product.id
+                        }`
+                      )
+                    }
+                    onToggleFeatured={() =>
+                      void updateProduct(
+                        product,
+                        {
+                          featured:
+                            !product.featured,
+                        },
+                        product.featured
+                          ? "تم إزالة المنتج من Featured."
+                          : "تم إضافة المنتج إلى Featured."
                       )
                     }
                   />
@@ -566,35 +843,60 @@ function ProductReviewCard({
   updating,
   onApprove,
   onReject,
+  onSuspend,
+  onToggleFeatured,
 }: {
   product: ProductWithSupplier;
   updating: boolean;
   onApprove: () => void;
   onReject: () => void;
+  onSuspend: () => void;
+  onToggleFeatured: () => void;
 }) {
   const supplierName =
-    product.supplier?.company_name_ar ||
-    product.supplier?.company_name_en ||
+    product.supplier
+      ?.company_name_en ||
+    product.supplier
+      ?.company_name_ar ||
     "Unknown Supplier";
 
+  const productName =
+    product.name_en ||
+    product.name_ar ||
+    "Medical Product";
+
   const status =
-    product.status?.toLowerCase() ||
-    "draft";
+    normalizeStatus(
+      product.status
+    );
+
+  const kind =
+    getEffectiveProductKind(
+      product
+    );
+
+  const isSparePart =
+    kind === "spare_part";
 
   return (
-    <article className="rounded-3xl border border-slate-200 p-5 md:p-6">
-      <div className="grid gap-6 lg:grid-cols-[110px_1fr_auto] lg:items-center">
-        <div className="flex h-[110px] w-[110px] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+    <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+      <div className="grid gap-6 p-5 md:p-6 xl:grid-cols-[120px_1fr_220px] xl:items-start">
+        <div className="flex h-[120px] w-[120px] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
           {product.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.image_url}
-              alt={product.name_en}
+              alt={productName}
               className="h-full w-full object-cover"
             />
+          ) : isSparePart ? (
+            <Settings
+              size={38}
+              className="text-slate-300"
+            />
           ) : (
-            <PackageCheck
-              size={34}
+            <Package
+              size={38}
               className="text-slate-300"
             />
           )}
@@ -602,123 +904,310 @@ function ProductReviewCard({
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-xl font-black">
-              {product.name_ar ||
-                product.name_en}
+            <h3 className="text-xl font-black text-slate-950">
+              {productName}
             </h3>
 
             <StatusBadge
               status={status}
             />
+
+            <ProductKindBadge
+              kind={kind}
+            />
+
+            {product.featured && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">
+                <Star size={13} />
+                Featured
+              </span>
+            )}
           </div>
 
-          {product.name_ar && (
-            <p className="mt-1 text-sm text-slate-500">
-              {product.name_en}
-            </p>
+          {product.name_ar &&
+            product.name_en && (
+              <p
+                dir="rtl"
+                className="mt-2 text-sm font-bold text-slate-500"
+              >
+                {product.name_ar}
+              </p>
+            )}
+
+          <div className="mt-5 grid gap-3 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoItem
+              label="Product ID"
+              value={String(
+                product.id
+              )}
+            />
+
+            <InfoItem
+              label="Supplier"
+              value={supplierName}
+            />
+
+            <InfoItem
+              label="Country"
+              value={
+                product.supplier
+                  ?.country ||
+                "Not specified"
+              }
+            />
+
+            <InfoItem
+              label="Category"
+              value={
+                product.category || "—"
+              }
+            />
+
+            <InfoItem
+              label="Brand"
+              value={
+                product.brand || "—"
+              }
+            />
+
+            <InfoItem
+              label="Model"
+              value={
+                product.model || "—"
+              }
+            />
+
+            <InfoItem
+              label="Stock"
+              value={
+                product.stock !== null
+                  ? String(
+                      product.stock
+                    )
+                  : "Not specified"
+              }
+            />
+
+            <InfoItem
+              label="Sale"
+              value={
+                product.available_for_sale
+                  ? formatPrice(
+                      product.sale_price,
+                      product.currency
+                    )
+                  : "Not available"
+              }
+            />
+
+            <InfoItem
+              label="Rental"
+              value={
+                product.available_for_rental
+                  ? formatPrice(
+                      product.monthly_rental_price,
+                      product.currency
+                    )
+                  : "Not available"
+              }
+            />
+          </div>
+
+          {isSparePart && (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div className="mb-3 flex items-center gap-2 font-black text-amber-800">
+                <Settings size={17} />
+                Spare Part Information
+              </div>
+
+              <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <InfoItem
+                  label="Part Number"
+                  value={
+                    product.part_number ||
+                    "Not specified"
+                  }
+                />
+
+                <InfoItem
+                  label="Manufacturer"
+                  value={
+                    product.manufacturer ||
+                    product.brand ||
+                    "Not specified"
+                  }
+                />
+
+                <InfoItem
+                  label="Compatible Device"
+                  value={
+                    product.compatible_device ||
+                    "Not specified"
+                  }
+                />
+
+                <InfoItem
+                  label="Condition"
+                  value={formatCondition(
+                    product.part_condition
+                  )}
+                />
+              </div>
+            </div>
           )}
 
-          <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-3">
-            <p>
-              <strong>Product ID:</strong>{" "}
-              {product.id}
-            </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {status === "approved" && (
+              <Link
+                href={`/store/product/${product.id}`}
+                target="_blank"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                <ExternalLink
+                  size={16}
+                />
+                View Product
+              </Link>
+            )}
 
-            <p>
-              <strong>Supplier:</strong>{" "}
-              {supplierName}
-            </p>
-
-            <p>
-              <strong>Category:</strong>{" "}
-              {product.category || "-"}
-            </p>
-
-            <p>
-              <strong>Brand:</strong>{" "}
-              {product.brand || "-"}
-            </p>
-
-            <p>
-              <strong>Model:</strong>{" "}
-              {product.model || "-"}
-            </p>
-
-            <p>
-              <strong>Stock:</strong>{" "}
-              {product.stock ?? 0}
-            </p>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              href={`/store/product/${product.id}`}
-              target="_blank"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 font-bold text-slate-700 transition hover:bg-slate-50"
-            >
-              <ExternalLink size={17} />
-              View Product
-            </Link>
+            {product.supplier?.slug && (
+              <Link
+                href={`/store/${product.supplier.slug}`}
+                target="_blank"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                <Building2
+                  size={16}
+                />
+                Supplier Store
+              </Link>
+            )}
 
             {product.catalog_url && (
               <a
-                href={product.catalog_url}
+                href={
+                  product.catalog_url
+                }
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 font-bold text-blue-700"
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700"
               >
-                <FileText size={17} />
-                View Catalog PDF
+                <FileText
+                  size={16}
+                />
+                Catalog PDF
               </a>
             )}
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+        <div className="flex flex-col gap-2">
           {status !== "approved" && (
-            <button
-              type="button"
+            <ActionButton
               disabled={updating}
               onClick={onApprove}
-              className="inline-flex min-w-36 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {updating ? (
-                <Loader2
-                  size={18}
-                  className="animate-spin"
-                />
-              ) : (
+              className="bg-emerald-600 hover:bg-emerald-700"
+              icon={
                 <CheckCircle2
-                  size={18}
+                  size={17}
                 />
-              )}
-
+              }
+              loading={updating}
+            >
               Approve
-            </button>
+            </ActionButton>
           )}
 
           {status !== "rejected" && (
-            <button
-              type="button"
+            <ActionButton
               disabled={updating}
               onClick={onReject}
-              className="inline-flex min-w-36 items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-red-600 hover:bg-red-700"
+              icon={
+                <XCircle size={17} />
+              }
+              loading={updating}
             >
-              {updating ? (
-                <Loader2
-                  size={18}
-                  className="animate-spin"
-                />
-              ) : (
-                <XCircle size={18} />
-              )}
-
               Reject
-            </button>
+            </ActionButton>
+          )}
+
+          {status === "approved" && (
+            <ActionButton
+              disabled={updating}
+              onClick={onSuspend}
+              className="bg-violet-600 hover:bg-violet-700"
+              icon={
+                <PauseCircle
+                  size={17}
+                />
+              }
+              loading={updating}
+            >
+              Suspend
+            </ActionButton>
+          )}
+
+          {status === "approved" && (
+            <ActionButton
+              disabled={updating}
+              onClick={
+                onToggleFeatured
+              }
+              className={
+                product.featured
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-slate-950 hover:bg-slate-800"
+              }
+              icon={
+                <Star size={17} />
+              }
+              loading={updating}
+            >
+              {product.featured
+                ? "Remove Featured"
+                : "Make Featured"}
+            </ActionButton>
           )}
         </div>
       </div>
     </article>
+  );
+}
+
+function ActionButton({
+  children,
+  disabled,
+  onClick,
+  className,
+  icon,
+  loading,
+}: {
+  children: React.ReactNode;
+  disabled: boolean;
+  onClick: () => void;
+  className: string;
+  icon: React.ReactNode;
+  loading: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    >
+      {loading ? (
+        <Loader2
+          size={17}
+          className="animate-spin"
+        />
+      ) : (
+        icon
+      )}
+
+      {children}
+    </button>
   );
 }
 
@@ -752,12 +1241,35 @@ function StatCard({
   );
 }
 
+function InfoItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words font-bold text-slate-800">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function StatusBadge({
   status,
 }: {
-  status: string;
+  status: ProductStatus;
 }) {
-  const styles: Record<string, string> = {
+  const styles: Record<
+    ProductStatus,
+    string
+  > = {
     pending:
       "bg-amber-100 text-amber-700",
     approved:
@@ -767,19 +1279,173 @@ function StatusBadge({
     draft:
       "bg-slate-100 text-slate-700",
     suspended:
-      "bg-purple-100 text-purple-700",
+      "bg-violet-100 text-violet-700",
   };
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
-        styles[status] ||
-        "bg-slate-100 text-slate-700"
-      }`}
+      className={`rounded-full px-3 py-1 text-xs font-black uppercase ${styles[status]}`}
     >
       {status}
     </span>
   );
+}
+
+function ProductKindBadge({
+  kind,
+}: {
+  kind: ProductKind;
+}) {
+  const labels: Record<
+    ProductKind,
+    string
+  > = {
+    equipment: "Equipment",
+    consumable: "Consumable",
+    spare_part: "Spare Part",
+  };
+
+  const styles: Record<
+    ProductKind,
+    string
+  > = {
+    equipment:
+      "bg-blue-100 text-blue-700",
+    consumable:
+      "bg-cyan-100 text-cyan-700",
+    spare_part:
+      "bg-amber-100 text-amber-800",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${styles[kind]}`}
+    >
+      {kind === "spare_part" ? (
+        <Settings size={12} />
+      ) : (
+        <Tag size={12} />
+      )}
+
+      {labels[kind]}
+    </span>
+  );
+}
+
+function normalizeStatus(
+  value: string | null
+): ProductStatus {
+  if (
+    value === "pending" ||
+    value === "approved" ||
+    value === "rejected" ||
+    value === "draft" ||
+    value === "suspended"
+  ) {
+    return value;
+  }
+
+  return "draft";
+}
+
+function getEffectiveProductKind(
+  product: SupplierProduct
+): ProductKind {
+  if (
+    product.product_kind ===
+      "equipment" ||
+    product.product_kind ===
+      "consumable" ||
+    product.product_kind ===
+      "spare_part"
+  ) {
+    if (
+      product.product_kind ===
+      "spare_part"
+    ) {
+      return "spare_part";
+    }
+
+    /*
+     * Legacy fallback:
+     * old spare parts may have been
+     * created before product_kind
+     * was introduced.
+     */
+    const legacyText = [
+      product.name_en,
+      product.name_ar,
+      product.category,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    if (
+      legacyText.includes(
+        "spare part"
+      ) ||
+      legacyText.includes(
+        "قطع غيار"
+      ) ||
+      legacyText.includes(
+        "قطعة غيار"
+      )
+    ) {
+      return "spare_part";
+    }
+
+    return product.product_kind;
+  }
+
+  return "equipment";
+}
+
+function formatCondition(
+  condition: PartCondition | null
+) {
+  if (condition === "new") {
+    return "New";
+  }
+
+  if (
+    condition === "refurbished"
+  ) {
+    return "Refurbished";
+  }
+
+  if (condition === "used") {
+    return "Used";
+  }
+
+  return "Not specified";
+}
+
+function formatPrice(
+  price: number | null,
+  currency: string | null
+) {
+  if (
+    price === null ||
+    price === undefined
+  ) {
+    return "Contact for price";
+  }
+
+  try {
+    return `${new Intl.NumberFormat(
+      "en-US",
+      {
+        maximumFractionDigits: 2,
+      }
+    ).format(price)} ${
+      currency || "USD"
+    }`;
+  } catch {
+    return `${price} ${
+      currency || "USD"
+    }`;
+  }
 }
 
 function getSupabaseError(
@@ -829,7 +1495,9 @@ function getErrorMessage(
     );
   }
 
-  if (typeof error === "string") {
+  if (
+    typeof error === "string"
+  ) {
     return error;
   }
 
