@@ -6,13 +6,16 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 
 import {
   ArrowLeft,
+  Building2,
   CheckCircle2,
   Clock3,
   ExternalLink,
+  Globe2,
   Loader2,
   Mail,
   MessageCircle,
@@ -41,6 +44,8 @@ type InquiryType =
   | "spare_part"
   | "rental"
   | "general";
+
+type StatusFilter = "all" | InquiryStatus;
 
 type MarketplaceInquiry = {
   id: number;
@@ -71,41 +76,26 @@ type MarketplaceInquiry = {
   updated_at: string;
 };
 
-type StatusFilter =
-  | "all"
-  | InquiryStatus;
-
 export default function MarketplaceInquiriesPage() {
-  const [inquiries, setInquiries] =
-    useState<MarketplaceInquiry[]>([]);
+  const [inquiries, setInquiries] = useState<MarketplaceInquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const [authorized, setAuthorized] =
-    useState<boolean | null>(null);
-
-  const [errorMessage, setErrorMessage] =
-    useState("");
-
-  const [search, setSearch] =
-    useState("");
-
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>("all");
 
-  const [savingId, setSavingId] =
-    useState<number | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
 
   const loadPage = useCallback(async () => {
     try {
       setLoading(true);
       setErrorMessage("");
 
-      const {
-        data: authData,
-        error: authError,
-      } = await supabase.auth.getUser();
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
 
       if (authError) {
         throw authError;
@@ -119,10 +109,7 @@ export default function MarketplaceInquiriesPage() {
         return;
       }
 
-      const {
-        data: adminData,
-        error: adminError,
-      } = await supabase
+      const { data: adminData, error: adminError } = await supabase
         .from("admin_users")
         .select("user_id")
         .eq("user_id", user.id)
@@ -140,10 +127,7 @@ export default function MarketplaceInquiriesPage() {
 
       setAuthorized(true);
 
-      const {
-        data,
-        error,
-      } = await supabase
+      const { data, error } = await supabase
         .from("marketplace_inquiries")
         .select(`
           id,
@@ -173,14 +157,9 @@ export default function MarketplaceInquiriesPage() {
         throw error;
       }
 
-      setInquiries(
-        (data ?? []) as MarketplaceInquiry[]
-      );
+      setInquiries((data ?? []) as MarketplaceInquiry[]);
     } catch (error: unknown) {
-      console.error(
-        "Marketplace inquiries error:",
-        error
-      );
+      console.error("Marketplace inquiries error:", error);
 
       setErrorMessage(
         getErrorMessage(
@@ -204,14 +183,11 @@ export default function MarketplaceInquiriesPage() {
   }, [loadPage]);
 
   const filteredInquiries = useMemo(() => {
-    const normalizedSearch = search
-      .trim()
-      .toLowerCase();
+    const normalizedSearch = search.trim().toLowerCase();
 
     return inquiries.filter((inquiry) => {
       const matchesStatus =
-        statusFilter === "all" ||
-        inquiry.status === statusFilter;
+        statusFilter === "all" || inquiry.status === statusFilter;
 
       if (!matchesStatus) {
         return false;
@@ -235,24 +211,16 @@ export default function MarketplaceInquiriesPage() {
         inquiry.source,
         inquiry.inquiry_type,
       ].some((value) =>
-        value
-          ?.toLowerCase()
-          .includes(normalizedSearch)
+        value?.toLowerCase().includes(normalizedSearch)
       );
     });
-  }, [
-    inquiries,
-    search,
-    statusFilter,
-  ]);
+  }, [inquiries, search, statusFilter]);
 
   const counts = useMemo(() => {
     return {
       total: inquiries.length,
 
-      new: inquiries.filter(
-        (item) => item.status === "new"
-      ).length,
+      new: inquiries.filter((item) => item.status === "new").length,
 
       contacted: inquiries.filter(
         (item) => item.status === "contacted"
@@ -262,13 +230,9 @@ export default function MarketplaceInquiriesPage() {
         (item) => item.status === "quoted"
       ).length,
 
-      won: inquiries.filter(
-        (item) => item.status === "won"
-      ).length,
+      won: inquiries.filter((item) => item.status === "won").length,
 
-      lost: inquiries.filter(
-        (item) => item.status === "lost"
-      ).length,
+      lost: inquiries.filter((item) => item.status === "lost").length,
     };
   }, [inquiries]);
 
@@ -280,14 +244,13 @@ export default function MarketplaceInquiriesPage() {
       setSavingId(inquiryId);
       setErrorMessage("");
 
-      const {
-        error,
-      } = await supabase
+      const updatedAt = new Date().toISOString();
+
+      const { error } = await supabase
         .from("marketplace_inquiries")
         .update({
           status,
-          updated_at:
-            new Date().toISOString(),
+          updated_at: updatedAt,
         })
         .eq("id", inquiryId);
 
@@ -301,8 +264,7 @@ export default function MarketplaceInquiriesPage() {
             ? {
                 ...item,
                 status,
-                updated_at:
-                  new Date().toISOString(),
+                updated_at: updatedAt,
               }
             : item
         )
@@ -319,23 +281,19 @@ export default function MarketplaceInquiriesPage() {
     }
   }
 
-  async function updateNotes(
-    inquiryId: number,
-    notes: string
-  ) {
+  async function updateNotes(inquiryId: number, notes: string) {
     try {
       setSavingId(inquiryId);
       setErrorMessage("");
 
-      const {
-        error,
-      } = await supabase
+      const cleanNotes = notes.trim() || null;
+      const updatedAt = new Date().toISOString();
+
+      const { error } = await supabase
         .from("marketplace_inquiries")
         .update({
-          admin_notes:
-            notes.trim() || null,
-          updated_at:
-            new Date().toISOString(),
+          admin_notes: cleanNotes,
+          updated_at: updatedAt,
         })
         .eq("id", inquiryId);
 
@@ -348,20 +306,15 @@ export default function MarketplaceInquiriesPage() {
           item.id === inquiryId
             ? {
                 ...item,
-                admin_notes:
-                  notes.trim() || null,
-                updated_at:
-                  new Date().toISOString(),
+                admin_notes: cleanNotes,
+                updated_at: updatedAt,
               }
             : item
         )
       );
     } catch (error: unknown) {
       setErrorMessage(
-        getErrorMessage(
-          error,
-          "Unable to save admin notes."
-        )
+        getErrorMessage(error, "Unable to save admin notes.")
       );
     } finally {
       setSavingId(null);
@@ -398,8 +351,8 @@ export default function MarketplaceInquiriesPage() {
           </h1>
 
           <p className="mt-3 text-slate-600">
-            You must sign in with an authorized
-            Health Nations administrator account.
+            You must sign in with an authorized Health Nations
+            administrator account.
           </p>
 
           <Link
@@ -436,17 +389,14 @@ export default function MarketplaceInquiriesPage() {
               </h1>
 
               <p className="mt-3 max-w-2xl text-slate-300">
-                Manage customer leads from products,
-                spare parts, rentals and the global
-                medical marketplace.
+                Manage customer leads from products, spare parts,
+                rentals and the global medical marketplace.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                void loadPage()
-              }
+              onClick={() => void loadPage()}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-bold text-slate-950"
             >
               <RefreshCw size={18} />
@@ -511,11 +461,7 @@ export default function MarketplaceInquiriesPage() {
 
               <input
                 value={search}
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search customer, product, Part Number, supplier, phone..."
                 className="w-full rounded-2xl border border-slate-200 py-3 pl-12 pr-4 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
               />
@@ -524,48 +470,24 @@ export default function MarketplaceInquiriesPage() {
             <select
               value={statusFilter}
               onChange={(event) =>
-                setStatusFilter(
-                  event.target
-                    .value as StatusFilter
-                )
+                setStatusFilter(event.target.value as StatusFilter)
               }
               className="rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-700"
             >
-              <option value="all">
-                All Statuses
-              </option>
-
-              <option value="new">
-                New
-              </option>
-
-              <option value="contacted">
-                Contacted
-              </option>
-
-              <option value="quoted">
-                Quoted
-              </option>
-
-              <option value="won">
-                Won
-              </option>
-
-              <option value="lost">
-                Lost
-              </option>
+              <option value="all">All Statuses</option>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="quoted">Quoted</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
             </select>
           </div>
 
           <p className="mt-4 text-sm text-slate-500">
             Showing{" "}
-            <strong>
-              {filteredInquiries.length}
-            </strong>{" "}
+            <strong>{filteredInquiries.length}</strong>{" "}
             of{" "}
-            <strong>
-              {inquiries.length}
-            </strong>{" "}
+            <strong>{inquiries.length}</strong>{" "}
             inquiries
           </p>
         </section>
@@ -582,30 +504,21 @@ export default function MarketplaceInquiriesPage() {
             </h2>
 
             <p className="mt-2 max-w-lg text-slate-500">
-              Customer marketplace inquiries will
-              appear here after the marketplace is
-              connected to this lead system.
+              Customer marketplace inquiries will appear here after
+              the marketplace is connected to this lead system.
             </p>
           </section>
         ) : (
           <section className="mt-7 space-y-5">
-            {filteredInquiries.map(
-              (inquiry) => (
-                <InquiryCard
-                  key={inquiry.id}
-                  inquiry={inquiry}
-                  saving={
-                    savingId === inquiry.id
-                  }
-                  onStatusChange={
-                    updateStatus
-                  }
-                  onSaveNotes={
-                    updateNotes
-                  }
-                />
-              )
-            )}
+            {filteredInquiries.map((inquiry) => (
+              <InquiryCard
+                key={inquiry.id}
+                inquiry={inquiry}
+                saving={savingId === inquiry.id}
+                onStatusChange={updateStatus}
+                onSaveNotes={updateNotes}
+              />
+            ))}
           </section>
         )}
       </div>
@@ -632,37 +545,25 @@ function InquiryCard({
     notes: string
   ) => Promise<void>;
 }) {
-  const [notes, setNotes] =
-    useState(
-      inquiry.admin_notes || ""
-    );
+  const [notes, setNotes] = useState(inquiry.admin_notes || "");
 
-  const customerWhatsapp =
-    inquiry.customer_phone
-      ? createWhatsAppUrl(
-          inquiry.customer_phone,
-          `مرحبًا ${
-            inquiry.customer_name ||
-            ""
-          }
+  const customerWhatsapp = inquiry.customer_phone
+    ? createWhatsAppUrl(
+        inquiry.customer_phone,
+        `مرحبًا ${inquiry.customer_name || ""}
 
 معك فريق صحة الأمم بخصوص طلبك على منصة Health Nations.
 
-المنتج: ${
-            inquiry.product_name ||
-            "Medical Product"
-          }
+المنتج: ${inquiry.product_name || "Medical Product"}
 ${
   inquiry.part_number
     ? `Part Number: ${inquiry.part_number}`
     : ""
 }
 
-رقم الطلب: HN-MKT-${String(
-            inquiry.id
-          ).padStart(5, "0")}`
-        )
-      : "";
+رقم الطلب: HN-MKT-${String(inquiry.id).padStart(5, "0")}`
+      )
+    : "";
 
   return (
     <article className="overflow-hidden rounded-3xl bg-white shadow-sm">
@@ -670,34 +571,22 @@ ${
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge
-                status={inquiry.status}
-              />
+              <StatusBadge status={inquiry.status} />
 
-              <InquiryTypeBadge
-                type={
-                  inquiry.inquiry_type
-                }
-              />
+              <InquiryTypeBadge type={inquiry.inquiry_type} />
 
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
                 HN-MKT-
-                {String(
-                  inquiry.id
-                ).padStart(5, "0")}
+                {String(inquiry.id).padStart(5, "0")}
               </span>
             </div>
 
             <h2 className="mt-4 text-2xl font-black text-slate-950">
-              {inquiry.product_name ||
-                "General Marketplace Inquiry"}
+              {inquiry.product_name || "General Marketplace Inquiry"}
             </h2>
 
             <p className="mt-2 text-sm text-slate-500">
-              Received{" "}
-              {formatDateTime(
-                inquiry.created_at
-              )}
+              Received {formatDateTime(inquiry.created_at)}
             </p>
           </div>
 
@@ -708,9 +597,7 @@ ${
                 target="_blank"
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
-                <ExternalLink
-                  size={16}
-                />
+                <ExternalLink size={16} />
                 View Product
               </Link>
             )}
@@ -722,9 +609,7 @@ ${
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
               >
-                <MessageCircle
-                  size={17}
-                />
+                <MessageCircle size={17} />
                 WhatsApp Customer
               </a>
             )}
@@ -734,97 +619,63 @@ ${
 
       <div className="grid gap-6 p-5 md:p-6 xl:grid-cols-3">
         <section>
-          <SectionTitle>
-            Customer
-          </SectionTitle>
+          <SectionTitle>Customer</SectionTitle>
 
           <InfoRow
             icon={<User size={16} />}
             label="Name"
-            value={
-              inquiry.customer_name ||
-              "Not provided"
-            }
+            value={inquiry.customer_name || "Not provided"}
           />
 
           <InfoRow
             icon={<Phone size={16} />}
             label="Phone"
-            value={
-              inquiry.customer_phone ||
-              "Not provided"
-            }
+            value={inquiry.customer_phone || "Not provided"}
           />
 
           <InfoRow
             icon={<Mail size={16} />}
             label="Email"
-            value={
-              inquiry.customer_email ||
-              "Not provided"
-            }
+            value={inquiry.customer_email || "Not provided"}
           />
 
           <InfoRow
-            icon={
-              <Globe2 size={16} />
-            }
+            icon={<Globe2 size={16} />}
             label="Country"
-            value={
-              inquiry.customer_country ||
-              "Not provided"
-            }
+            value={inquiry.customer_country || "Not provided"}
           />
         </section>
 
         <section>
-          <SectionTitle>
-            Product
-          </SectionTitle>
+          <SectionTitle>Product</SectionTitle>
 
           <InfoRow
             icon={<Package size={16} />}
             label="Product"
-            value={
-              inquiry.product_name ||
-              "Not specified"
-            }
+            value={inquiry.product_name || "Not specified"}
           />
 
           <InfoRow
             icon={<Settings size={16} />}
             label="Part Number"
-            value={
-              inquiry.part_number ||
-              "—"
-            }
+            value={inquiry.part_number || "—"}
           />
 
           <InfoRow
-            icon={
-              <Building2 size={16} />
-            }
+            icon={<Building2 size={16} />}
             label="Supplier"
-            value={
-              inquiry.supplier_name ||
-              "Not specified"
-            }
+            value={inquiry.supplier_name || "Not specified"}
           />
 
           <InfoRow
             icon={<Globe2 size={16} />}
             label="Supplier Country"
-            value={
-              inquiry.supplier_country ||
-              "Not specified"
-            }
+            value={inquiry.supplier_country || "Not specified"}
           />
         </section>
 
         <section>
-          <SectionTitle>
-            Lead Management
-          </SectionTitle>
+          <SectionTitle>Lead Management</SectionTitle>
 
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -837,31 +688,16 @@ ${
               onChange={(event) =>
                 void onStatusChange(
                   inquiry.id,
-                  event.target
-                    .value as InquiryStatus
+                  event.target.value as InquiryStatus
                 )
               }
               className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-semibold outline-none focus:border-blue-700 disabled:opacity-60"
             >
-              <option value="new">
-                New
-              </option>
-
-              <option value="contacted">
-                Contacted
-              </option>
-
-              <option value="quoted">
-                Quoted
-              </option>
-
-              <option value="won">
-                Won
-              </option>
-
-              <option value="lost">
-                Lost
-              </option>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="quoted">Quoted</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
             </select>
           </label>
 
@@ -872,11 +708,7 @@ ${
 
             <textarea
               value={notes}
-              onChange={(event) =>
-                setNotes(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setNotes(event.target.value)}
               rows={4}
               placeholder="Add follow-up notes..."
               className="mt-2 w-full resize-none rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-blue-700"
@@ -887,10 +719,7 @@ ${
             type="button"
             disabled={saving}
             onClick={() =>
-              void onSaveNotes(
-                inquiry.id,
-                notes
-              )
+              void onSaveNotes(inquiry.id, notes)
             }
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
           >
@@ -900,9 +729,7 @@ ${
                 className="animate-spin"
               />
             ) : (
-              <CheckCircle2
-                size={16}
-              />
+              <CheckCircle2 size={16} />
             )}
 
             Save Notes
@@ -932,7 +759,7 @@ function DashboardStat({
 }: {
   label: string;
   value: number;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm">
@@ -958,7 +785,7 @@ function DashboardStat({
 function SectionTitle({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <h3 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-950">
@@ -972,7 +799,7 @@ function InfoRow({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -1000,26 +827,15 @@ function StatusBadge({
 }: {
   status: InquiryStatus;
 }) {
-  const styles: Record<
-    InquiryStatus,
-    string
-  > = {
-    new:
-      "bg-blue-100 text-blue-800",
-    contacted:
-      "bg-violet-100 text-violet-800",
-    quoted:
-      "bg-amber-100 text-amber-800",
-    won:
-      "bg-emerald-100 text-emerald-800",
-    lost:
-      "bg-red-100 text-red-700",
+  const styles: Record<InquiryStatus, string> = {
+    new: "bg-blue-100 text-blue-800",
+    contacted: "bg-violet-100 text-violet-800",
+    quoted: "bg-amber-100 text-amber-800",
+    won: "bg-emerald-100 text-emerald-800",
+    lost: "bg-red-100 text-red-700",
   };
 
-  const labels: Record<
-    InquiryStatus,
-    string
-  > = {
+  const labels: Record<InquiryStatus, string> = {
     new: "New",
     contacted: "Contacted",
     quoted: "Quoted",
@@ -1041,10 +857,7 @@ function InquiryTypeBadge({
 }: {
   type: InquiryType;
 }) {
-  const labels: Record<
-    InquiryType,
-    string
-  > = {
+  const labels: Record<InquiryType, string> = {
     product: "Product",
     spare_part: "Spare Part",
     rental: "Rental",
@@ -1058,17 +871,12 @@ function InquiryTypeBadge({
   );
 }
 
-function formatDateTime(
-  value: string
-) {
+function formatDateTime(value: string) {
   try {
-    return new Intl.DateTimeFormat(
-      "en-GB",
-      {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }
-    ).format(new Date(value));
+    return new Intl.DateTimeFormat("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
   } catch {
     return value;
   }
@@ -1078,8 +886,7 @@ function createWhatsAppUrl(
   phone: string,
   message: string
 ) {
-  const normalizedPhone =
-    phone.replace(/\D/g, "");
+  const normalizedPhone = phone.replace(/\D/g, "");
 
   return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(
     message
