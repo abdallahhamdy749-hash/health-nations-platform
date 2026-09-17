@@ -13,20 +13,31 @@ import {
   Building2,
   CheckCircle2,
   ChevronRight,
+  Globe2,
   ImageIcon,
   Loader2,
   MessageCircle,
   Package,
   Search,
+  Settings,
   ShoppingBag,
   Star,
-  Store,
   Tag,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 
 const HEALTH_NATIONS_WHATSAPP = "966568697530";
+
+type ProductKind =
+  | "equipment"
+  | "consumable"
+  | "spare_part";
+
+type PartCondition =
+  | "new"
+  | "refurbished"
+  | "used";
 
 type SupplierProfile = {
   user_id: string;
@@ -43,47 +54,157 @@ type SupplierProfile = {
 type SupplierProduct = {
   id: number;
   supplier_id: string;
+
+  product_kind: ProductKind | null;
+
   name_en: string | null;
   name_ar: string | null;
+
   description_en: string | null;
   description_ar: string | null;
+
   category: string | null;
   brand: string | null;
   model: string | null;
+
+  part_number: string | null;
+  manufacturer: string | null;
+  compatible_device: string | null;
+  part_condition: PartCondition | null;
+
   image_url: string | null;
   catalog_url: string | null;
   alibaba_url: string | null;
+
   sale_price: number | null;
   currency: string | null;
+
   minimum_order_quantity: number | null;
   stock: number | null;
+
   available_for_sale: boolean | null;
   available_for_rental: boolean | null;
+
   monthly_rental_price: number | null;
+
   status: string | null;
   featured: boolean | null;
   created_at: string | null;
 };
 
-type ProductWithSupplier = SupplierProduct & {
-  supplier?: SupplierProfile;
-};
+type ProductWithSupplier =
+  SupplierProduct & {
+    supplier?: SupplierProfile;
+  };
+
+type MarketplaceType =
+  | "all"
+  | "sale"
+  | "rental"
+  | "spare-parts";
 
 function formatPrice(
   price: number | null,
   currency: string | null
 ): string {
-  if (price === null || price === undefined) {
+  if (
+    price === null ||
+    price === undefined
+  ) {
     return "Contact for price";
   }
 
   try {
-    return `${new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: 2,
-    }).format(price)} ${currency || "SAR"}`;
+    return `${new Intl.NumberFormat(
+      "en-US",
+      {
+        maximumFractionDigits: 2,
+      }
+    ).format(price)} ${
+      currency || "USD"
+    }`;
   } catch {
-    return `${price} ${currency || "SAR"}`;
+    return `${price} ${
+      currency || "USD"
+    }`;
   }
+}
+
+function createWhatsAppUrl(
+  phone: string,
+  message: string
+) {
+  const normalizedPhone =
+    phone.replace(/\D/g, "");
+
+  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(
+    message
+  )}`;
+}
+
+/*
+ * Structured spare-part detection is the main rule.
+ *
+ * Legacy text matching remains as a fallback because
+ * products created before product_kind was introduced
+ * may still have product_kind = equipment.
+ */
+function isSparePartProduct(
+  product: ProductWithSupplier
+) {
+  if (
+    product.product_kind ===
+    "spare_part"
+  ) {
+    return true;
+  }
+
+  const text = [
+    product.category,
+    product.name_en,
+    product.name_ar,
+    product.description_en,
+    product.description_ar,
+  ]
+    .filter(
+      (value): value is string =>
+        typeof value === "string"
+    )
+    .join(" ")
+    .toLowerCase();
+
+  const sparePartTerms = [
+    "spare part",
+    "spare parts",
+    "medical spare",
+    "equipment spare",
+    "replacement part",
+    "replacement parts",
+    "قطع غيار",
+    "قطعة غيار",
+  ];
+
+  return sparePartTerms.some(
+    (term) => text.includes(term)
+  );
+}
+
+function formatCondition(
+  condition: PartCondition | null
+) {
+  if (condition === "new") {
+    return "New";
+  }
+
+  if (condition === "refurbished") {
+    return "Refurbished";
+  }
+
+  if (condition === "used") {
+    return "Used";
+  }
+
+  return "";
 }
 
 export default function StorePage() {
@@ -102,33 +223,84 @@ export default function StorePage() {
   const [search, setSearch] =
     useState("");
 
-  const [homepageSearch, setHomepageSearch] =
-    useState("");
+  const [
+    homepageSearch,
+    setHomepageSearch,
+  ] = useState("");
 
-  const [selectedCategory, setSelectedCategory] =
-    useState("all");
+  const [
+    selectedCategory,
+    setSelectedCategory,
+  ] = useState("all");
 
-  const [selectedType, setSelectedType] = useState<
-    "all" | "sale" | "rental"
-  >("all");
+  const [
+    selectedCountry,
+    setSelectedCountry,
+  ] = useState("all");
+
+  const [
+    selectedType,
+    setSelectedType,
+  ] =
+    useState<MarketplaceType>("all");
 
   const whatsappRedirected =
     useRef(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const params = new URLSearchParams(
-        window.location.search
-      );
+    const timer =
+      window.setTimeout(() => {
+        const params =
+          new URLSearchParams(
+            window.location.search
+          );
 
-      const query =
-        params.get("search")?.trim() || "";
+        const query =
+          params
+            .get("search")
+            ?.trim() || "";
 
-      if (query) {
-        setSearch(query);
-        setHomepageSearch(query);
-      }
-    }, 0);
+        const type = params
+          .get("type")
+          ?.trim()
+          .toLowerCase();
+
+        const country =
+          params
+            .get("country")
+            ?.trim() || "";
+
+        if (query) {
+          setSearch(query);
+          setHomepageSearch(query);
+        }
+
+        if (country) {
+          setSelectedCountry(
+            country
+          );
+        }
+
+        if (type === "rental") {
+          setSelectedType(
+            "rental"
+          );
+        } else if (
+          type === "sale"
+        ) {
+          setSelectedType("sale");
+        } else if (
+          type ===
+            "spare-parts" ||
+          type === "spareparts"
+        ) {
+          setSelectedType(
+            "spare-parts"
+          );
+        } else {
+          setSelectedType("all");
+        }
+      }, 0);
 
     return () => {
       window.clearTimeout(timer);
@@ -152,7 +324,9 @@ export default function StorePage() {
           },
         ] = await Promise.all([
           supabase
-            .from("supplier_profiles")
+            .from(
+              "supplier_profiles"
+            )
             .select(`
               user_id,
               company_name_en,
@@ -166,10 +340,13 @@ export default function StorePage() {
             `),
 
           supabase
-            .from("supplier_products")
+            .from(
+              "supplier_products"
+            )
             .select(`
               id,
               supplier_id,
+              product_kind,
               name_en,
               name_ar,
               description_en,
@@ -177,6 +354,10 @@ export default function StorePage() {
               category,
               brand,
               model,
+              part_number,
+              manufacturer,
+              compatible_device,
+              part_condition,
               image_url,
               catalog_url,
               alibaba_url,
@@ -191,13 +372,22 @@ export default function StorePage() {
               featured,
               created_at
             `)
-            .eq("status", "approved")
-            .order("featured", {
-              ascending: false,
-            })
-            .order("created_at", {
-              ascending: false,
-            }),
+            .eq(
+              "status",
+              "approved"
+            )
+            .order(
+              "featured",
+              {
+                ascending: false,
+              }
+            )
+            .order(
+              "created_at",
+              {
+                ascending: false,
+              }
+            ),
         ]);
 
         if (supplierError) {
@@ -209,22 +399,27 @@ export default function StorePage() {
         }
 
         setSuppliers(
-          (supplierData ?? []) as SupplierProfile[]
+          (supplierData ??
+            []) as SupplierProfile[]
         );
 
         setProducts(
-          (productData ?? []) as SupplierProduct[]
+          (productData ??
+            []) as SupplierProduct[]
         );
-      } catch (error) {
+      } catch (
+        error: unknown
+      ) {
         console.error(
           "Marketplace loading error:",
           error
         );
 
         setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to load marketplace."
+          getErrorMessage(
+            error,
+            "Unable to load marketplace."
+          )
         );
       } finally {
         setLoading(false);
@@ -232,239 +427,439 @@ export default function StorePage() {
     }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadMarketplace();
-    }, 0);
+    const timer =
+      window.setTimeout(() => {
+        void loadMarketplace();
+      }, 0);
 
     return () => {
       window.clearTimeout(timer);
     };
   }, [loadMarketplace]);
 
-  const supplierMap = useMemo(() => {
-    return new Map(
-      suppliers.map((supplier) => [
-        supplier.user_id,
-        supplier,
-      ])
-    );
-  }, [suppliers]);
+  const supplierMap =
+    useMemo(() => {
+      return new Map(
+        suppliers.map(
+          (supplier) => [
+            supplier.user_id,
+            supplier,
+          ]
+        )
+      );
+    }, [suppliers]);
 
   const marketplaceProducts =
-    useMemo<ProductWithSupplier[]>(() => {
-      return products.map((product) => ({
-        ...product,
-        supplier: supplierMap.get(
-          product.supplier_id
-        ),
-      }));
-    }, [products, supplierMap]);
+    useMemo<
+      ProductWithSupplier[]
+    >(() => {
+      return products.map(
+        (product) => ({
+          ...product,
+          supplier:
+            supplierMap.get(
+              product.supplier_id
+            ),
+        })
+      );
+    }, [
+      products,
+      supplierMap,
+    ]);
 
-  const categories = useMemo(() => {
-    const values = products
-      .map((product) =>
-        product.category?.trim()
-      )
-      .filter(
-        (category): category is string =>
-          Boolean(category)
+  const countries =
+    useMemo(() => {
+      const countryMap =
+        new Map<
+          string,
+          string
+        >();
+
+      suppliers.forEach(
+        (supplier) => {
+          const country =
+            supplier.country?.trim();
+
+          if (!country) {
+            return;
+          }
+
+          const key =
+            country.toLowerCase();
+
+          if (
+            !countryMap.has(key)
+          ) {
+            countryMap.set(
+              key,
+              country
+            );
+          }
+        }
       );
 
-    return Array.from(
-      new Set(values)
-    ).sort((a, b) =>
-      a.localeCompare(b)
-    );
-  }, [products]);
+      return Array.from(
+        countryMap.values()
+      ).sort((a, b) =>
+        a.localeCompare(b)
+      );
+    }, [suppliers]);
 
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = search
-      .trim()
-      .toLowerCase();
+  const categories =
+    useMemo(() => {
+      const values = products
+        .map((product) =>
+          product.category?.trim()
+        )
+        .filter(
+          (
+            category
+          ): category is string =>
+            Boolean(category)
+        );
 
-    const searchTerms = normalizedSearch
-      .split(/\s+/)
-      .map((term) => term.trim())
-      .filter((term) => term.length > 1);
+      return Array.from(
+        new Set(values)
+      ).sort((a, b) =>
+        a.localeCompare(b)
+      );
+    }, [products]);
 
-    return marketplaceProducts
-      .map((product) => {
-        const supplier =
-          product.supplier;
-
-        const matchesCategory =
-          selectedCategory === "all" ||
-          product.category ===
-            selectedCategory;
-
-        const matchesType =
-          selectedType === "all" ||
-          (selectedType === "sale" &&
-            product.available_for_sale) ||
-          (selectedType === "rental" &&
-            product.available_for_rental);
-
-        if (!matchesCategory || !matchesType) {
-          return {
-            product,
-            score: -1,
-          };
-        }
-
-        if (searchTerms.length === 0) {
-          return {
-            product,
-            score: product.featured ? 1 : 0,
-          };
-        }
-
-        const searchableValues = [
-          product.name_en,
-          product.name_ar,
-          product.description_en,
-          product.description_ar,
-          product.brand,
-          product.model,
-          product.category,
-          supplier?.company_name_en,
-          supplier?.company_name_ar,
-        ]
-          .filter(
-            (value): value is string =>
-              typeof value === "string" &&
-              value.trim().length > 0
-          )
-          .map((value) =>
-            value.trim().toLowerCase()
-          );
-
-        let score = 0;
-
-        for (const term of searchTerms) {
-          for (const value of searchableValues) {
-            if (value === term) {
-              score += 12;
-              continue;
-            }
-
-            if (value.startsWith(term)) {
-              score += 8;
-              continue;
-            }
-
-            if (value.includes(term)) {
-              score += 4;
-            }
-          }
-        }
-
-        const productNameValues = [
-          product.name_en,
-          product.name_ar,
-        ]
-          .filter(
-            (value): value is string =>
-              typeof value === "string" &&
-              value.trim().length > 0
-          )
-          .map((value) =>
-            value.toLowerCase()
-          );
-
-        const brandValue =
-          product.brand
-            ?.trim()
-            .toLowerCase() || "";
-
-        const modelValue =
-          product.model
-            ?.trim()
-            .toLowerCase() || "";
-
-        for (const term of searchTerms) {
-          if (
-            productNameValues.some((name) =>
-              name.includes(term)
-            )
-          ) {
-            score += 6;
-          }
-
-          if (
-            brandValue &&
-            brandValue.includes(term)
-          ) {
-            score += 7;
-          }
-
-          if (
-            modelValue &&
-            modelValue.includes(term)
-          ) {
-            score += 9;
-          }
-        }
-
-        const fullProductText = [
-          product.name_en,
-          product.name_ar,
-          product.brand,
-          product.model,
-          product.category,
-        ]
-          .filter(Boolean)
-          .join(" ")
+  const filteredProducts =
+    useMemo(() => {
+      const normalizedSearch =
+        search
+          .trim()
           .toLowerCase();
 
-        if (
-          normalizedSearch &&
-          fullProductText.includes(
-            normalizedSearch
+      const searchTerms =
+        normalizedSearch
+          .split(/\s+/)
+          .map((term) =>
+            term.trim()
           )
-        ) {
-          score += 20;
-        }
+          .filter(
+            (term) =>
+              term.length > 1
+          );
 
-        if (product.featured) {
-          score += 1;
-        }
+      return marketplaceProducts
+        .map((product) => {
+          const supplier =
+            product.supplier;
 
-        return {
-          product,
-          score,
-        };
-      })
-      .filter(({ score }) =>
-        searchTerms.length === 0
-          ? score >= 0
-          : score > 0
-      )
-      .sort((a, b) => b.score - a.score)
-      .map(({ product }) => product);
-  }, [
-    marketplaceProducts,
-    search,
-    selectedCategory,
-    selectedType,
-  ]);
+          const matchesCategory =
+            selectedCategory ===
+              "all" ||
+            product.category ===
+              selectedCategory;
 
-  const saleCount = useMemo(
-    () =>
-      products.filter(
+          const supplierCountry =
+            supplier?.country?.trim() ||
+            "";
+
+          const matchesCountry =
+            selectedCountry ===
+              "all" ||
+            supplierCountry.toLowerCase() ===
+              selectedCountry
+                .trim()
+                .toLowerCase();
+
+          const matchesType =
+            selectedType ===
+              "all" ||
+            (selectedType ===
+              "sale" &&
+              product.available_for_sale ===
+                true) ||
+            (selectedType ===
+              "rental" &&
+              product.available_for_rental ===
+                true) ||
+            (selectedType ===
+              "spare-parts" &&
+              isSparePartProduct(
+                product
+              ));
+
+          if (
+            !matchesCategory ||
+            !matchesCountry ||
+            !matchesType
+          ) {
+            return {
+              product,
+              score: -1,
+            };
+          }
+
+          if (
+            searchTerms.length ===
+            0
+          ) {
+            return {
+              product,
+              score:
+                product.featured
+                  ? 1
+                  : 0,
+            };
+          }
+
+          const searchableValues =
+            [
+              product.name_en,
+              product.name_ar,
+              product.description_en,
+              product.description_ar,
+              product.brand,
+              product.model,
+              product.category,
+
+              product.part_number,
+              product.manufacturer,
+              product.compatible_device,
+              product.part_condition,
+
+              supplier?.company_name_en,
+              supplier?.company_name_ar,
+              supplier?.country,
+              supplier?.city,
+            ]
+              .filter(
+                (
+                  value
+                ): value is string =>
+                  typeof value ===
+                    "string" &&
+                  value.trim()
+                    .length > 0
+              )
+              .map((value) =>
+                value
+                  .trim()
+                  .toLowerCase()
+              );
+
+          let score = 0;
+
+          for (const term of searchTerms) {
+            for (const value of searchableValues) {
+              if (
+                value === term
+              ) {
+                score += 12;
+                continue;
+              }
+
+              if (
+                value.startsWith(
+                  term
+                )
+              ) {
+                score += 8;
+                continue;
+              }
+
+              if (
+                value.includes(
+                  term
+                )
+              ) {
+                score += 4;
+              }
+            }
+          }
+
+          const productNameValues =
+            [
+              product.name_en,
+              product.name_ar,
+            ]
+              .filter(
+                (
+                  value
+                ): value is string =>
+                  typeof value ===
+                    "string" &&
+                  value.trim()
+                    .length > 0
+              )
+              .map((value) =>
+                value.toLowerCase()
+              );
+
+          const brandValue =
+            product.brand
+              ?.trim()
+              .toLowerCase() ||
+            "";
+
+          const modelValue =
+            product.model
+              ?.trim()
+              .toLowerCase() ||
+            "";
+
+          const partNumberValue =
+            product.part_number
+              ?.trim()
+              .toLowerCase() ||
+            "";
+
+          const manufacturerValue =
+            product.manufacturer
+              ?.trim()
+              .toLowerCase() ||
+            "";
+
+          const compatibleDeviceValue =
+            product.compatible_device
+              ?.trim()
+              .toLowerCase() ||
+            "";
+
+          for (const term of searchTerms) {
+            if (
+              productNameValues.some(
+                (name) =>
+                  name.includes(
+                    term
+                  )
+              )
+            ) {
+              score += 6;
+            }
+
+            if (
+              brandValue &&
+              brandValue.includes(
+                term
+              )
+            ) {
+              score += 7;
+            }
+
+            if (
+              modelValue &&
+              modelValue.includes(
+                term
+              )
+            ) {
+              score += 9;
+            }
+
+            if (
+              manufacturerValue &&
+              manufacturerValue.includes(
+                term
+              )
+            ) {
+              score += 10;
+            }
+
+            if (
+              compatibleDeviceValue &&
+              compatibleDeviceValue.includes(
+                term
+              )
+            ) {
+              score += 11;
+            }
+
+            if (
+              partNumberValue &&
+              partNumberValue.includes(
+                term
+              )
+            ) {
+              score += 20;
+            }
+          }
+
+          /*
+           * Exact Part Number gets the strongest
+           * ranking in the marketplace.
+           */
+          if (
+            partNumberValue &&
+            normalizedSearch ===
+              partNumberValue
+          ) {
+            score += 100;
+          }
+
+          const fullProductText =
+            [
+              product.name_en,
+              product.name_ar,
+              product.brand,
+              product.model,
+              product.category,
+              product.part_number,
+              product.manufacturer,
+              product.compatible_device,
+              supplier?.country,
+              supplier?.city,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+          if (
+            normalizedSearch &&
+            fullProductText.includes(
+              normalizedSearch
+            )
+          ) {
+            score += 20;
+          }
+
+          if (
+            product.featured
+          ) {
+            score += 1;
+          }
+
+          return {
+            product,
+            score,
+          };
+        })
+        .filter(({ score }) =>
+          searchTerms.length ===
+          0
+            ? score >= 0
+            : score > 0
+        )
+        .sort(
+          (a, b) =>
+            b.score - a.score
+        )
+        .map(
+          ({ product }) =>
+            product
+        );
+    }, [
+      marketplaceProducts,
+      search,
+      selectedCategory,
+      selectedCountry,
+      selectedType,
+    ]);
+
+  const sparePartsCount =
+    useMemo(() => {
+      return marketplaceProducts.filter(
         (product) =>
-          product.available_for_sale
-      ).length,
-    [products]
-  );
-
-  const rentalCount = useMemo(
-    () =>
-      products.filter(
-        (product) =>
-          product.available_for_rental
-      ).length,
-    [products]
-  );
+          isSparePartProduct(
+            product
+          )
+      ).length;
+    }, [
+      marketplaceProducts,
+    ]);
 
   const missingProductWhatsappUrl =
     useMemo(() => {
@@ -475,35 +870,48 @@ export default function StorePage() {
         return "";
       }
 
+      const countryText =
+        selectedCountry ===
+        "all"
+          ? "All Countries"
+          : selectedCountry;
+
       return createWhatsAppUrl(
         HEALTH_NATIONS_WHATSAPP,
-        `طلب منتج جديد من منصة صحة الأمم
+        `طلب منتج أو قطعة غيار من منصة صحة الأمم
 
-المنتج المطلوب: ${requestedProduct}
+المنتج / القطعة المطلوبة: ${requestedProduct}
+الدولة / السوق: ${countryText}
 
 نتيجة البحث: المنتج غير موجود حاليًا ضمن المنتجات المعروضة على المنصة.
 
-أرغب في معرفة السعر وإمكانية التوفير.
+أرغب في معرفة السعر وإمكانية التوفير عالميًا.
 
-New Product Request
-Product: ${requestedProduct}
-Source: Health Nations Marketplace`
+New Product / Spare Part Request
+Search: ${requestedProduct}
+Market: ${countryText}
+Source: Health Nations Global Marketplace`
       );
-    }, [search]);
+    }, [
+      search,
+      selectedCountry,
+    ]);
 
   useEffect(() => {
     if (
       loading ||
       errorMessage ||
       !homepageSearch ||
-      filteredProducts.length > 0 ||
+      filteredProducts.length >
+        0 ||
       !missingProductWhatsappUrl ||
       whatsappRedirected.current
     ) {
       return;
     }
 
-    whatsappRedirected.current = true;
+    whatsappRedirected.current =
+      true;
 
     window.location.href =
       missingProductWhatsappUrl;
@@ -515,6 +923,17 @@ Source: Health Nations Marketplace`
     missingProductWhatsappUrl,
   ]);
 
+  const clearFilters = () => {
+    setSearch("");
+    setHomepageSearch("");
+    setSelectedCategory("all");
+    setSelectedCountry("all");
+    setSelectedType("all");
+
+    whatsappRedirected.current =
+      false;
+  };
+
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white">
@@ -522,34 +941,70 @@ Source: Health Nations Marketplace`
           <div className="grid gap-10 lg:grid-cols-[1.4fr_0.6fr] lg:items-center">
             <div>
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm">
-                <Store className="h-4 w-4" />
-                Health Nations Marketplace
+                <Globe2 className="h-4 w-4" />
+                Health Nations Global Marketplace
               </div>
 
               <h1 className="max-w-4xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-                Medical Equipment Marketplace
+                Global Medical Equipment Marketplace
               </h1>
 
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-                Discover medical equipment and
-                supplies from healthcare suppliers
-                in one marketplace.
+                Search medical equipment,
+                consumables and spare parts
+                by product name, brand, model,
+                manufacturer or Part Number.
               </p>
 
               <p
-                className="mt-2 text-slate-400"
+                className="mt-2 max-w-2xl text-slate-400"
                 dir="rtl"
               >
-                اكتشف الأجهزة والمستلزمات الطبية من
-                الموردين المسجلين في منصة صحة الأمم.
+                ابحث عن الأجهزة الطبية
+                والمستهلكات وقطع الغيار بالاسم
+                أو الماركة أو الموديل أو الشركة
+                المصنعة أو رقم القطعة Part Number.
               </p>
+
+              {selectedCountry !==
+                "all" && (
+                <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/15 px-4 py-2 text-sm font-semibold text-cyan-100">
+                  <Globe2 className="h-4 w-4" />
+                  Market:{" "}
+                  {selectedCountry}
+                </div>
+              )}
+
+              {selectedType ===
+                "rental" && (
+                <div className="mt-6 ml-2 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-sm font-semibold text-blue-100">
+                  <Tag className="h-4 w-4" />
+                  Medical Equipment Rental
+                </div>
+              )}
+
+              {selectedType ===
+                "sale" && (
+                <div className="mt-6 ml-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-100">
+                  <ShoppingBag className="h-4 w-4" />
+                  Medical Equipment For Sale
+                </div>
+              )}
+
+              {selectedType ===
+                "spare-parts" && (
+                <div className="mt-6 ml-2 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/15 px-4 py-2 text-sm font-semibold text-amber-100">
+                  <Settings className="h-4 w-4" />
+                  Medical Equipment Spare Parts
+                </div>
+              )}
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/supplier/register"
                   className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-slate-100"
                 >
-                  Become a Supplier
+                  Become a Global Supplier
                   <ChevronRight className="h-4 w-4" />
                 </Link>
 
@@ -557,7 +1012,7 @@ Source: Health Nations Marketplace`
                   href="/suppliers"
                   className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 font-semibold text-white transition hover:bg-white/15"
                 >
-                  Browse Suppliers
+                  Browse Global Suppliers
                   <Building2 className="h-4 w-4" />
                 </Link>
               </div>
@@ -567,63 +1022,127 @@ Source: Health Nations Marketplace`
               <StatCard
                 label="Products"
                 value={products.length}
-                icon={<Package className="h-5 w-5" />}
+                icon={
+                  <Package className="h-5 w-5" />
+                }
               />
 
               <StatCard
                 label="Suppliers"
                 value={suppliers.length}
-                icon={<Building2 className="h-5 w-5" />}
+                icon={
+                  <Building2 className="h-5 w-5" />
+                }
               />
 
               <StatCard
-                label="For Sale"
-                value={saleCount}
-                icon={<ShoppingBag className="h-5 w-5" />}
+                label="Countries"
+                value={countries.length}
+                icon={
+                  <Globe2 className="h-5 w-5" />
+                }
               />
 
               <StatCard
-                label="For Rental"
-                value={rentalCount}
-                icon={<Tag className="h-5 w-5" />}
+                label="Spare Parts"
+                value={
+                  sparePartsCount
+                }
+                icon={
+                  <Settings className="h-5 w-5" />
+                }
               />
             </div>
           </div>
         </div>
       </section>
 
-      <section className="border-b bg-white">
+      <section className="sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto]">
+          <div className="grid gap-4 xl:grid-cols-[1fr_auto_auto_auto]">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
               <input
                 type="text"
                 value={search}
-                onChange={(event) => {
+                onChange={(
+                  event
+                ) => {
                   setSearch(
-                    event.target.value
+                    event.target
+                      .value
                   );
 
-                  setHomepageSearch("");
+                  setHomepageSearch(
+                    ""
+                  );
 
                   whatsappRedirected.current =
                     false;
                 }}
-                placeholder="Search products, brands, models or suppliers..."
+                placeholder="Search product name, Part Number, manufacturer, model..."
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 outline-none transition focus:border-blue-500 focus:bg-white"
               />
             </div>
 
             <select
-              value={selectedCategory}
-              onChange={(event) =>
-                setSelectedCategory(
-                  event.target.value
-                )
+              value={
+                selectedCountry
               }
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              onChange={(
+                event
+              ) => {
+                setSelectedCountry(
+                  event.target
+                    .value
+                );
+
+                setHomepageSearch(
+                  ""
+                );
+
+                whatsappRedirected.current =
+                  false;
+              }}
+              className="min-w-[190px] rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
+            >
+              <option value="all">
+                🌍 All Countries
+              </option>
+
+              {countries.map(
+                (country) => (
+                  <option
+                    key={country}
+                    value={country}
+                  >
+                    {country}
+                  </option>
+                )
+              )}
+            </select>
+
+            <select
+              value={
+                selectedCategory
+              }
+              onChange={(
+                event
+              ) => {
+                setSelectedCategory(
+                  event.target
+                    .value
+                );
+
+                setHomepageSearch(
+                  ""
+                );
+
+                whatsappRedirected.current =
+                  false;
+              }}
+              className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
             >
               <option value="all">
                 All Categories
@@ -643,18 +1162,25 @@ Source: Health Nations Marketplace`
 
             <select
               value={selectedType}
-              onChange={(event) =>
+              onChange={(
+                event
+              ) => {
                 setSelectedType(
-                  event.target.value as
-                    | "all"
-                    | "sale"
-                    | "rental"
-                )
-              }
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                  event.target
+                    .value as MarketplaceType
+                );
+
+                setHomepageSearch(
+                  ""
+                );
+
+                whatsappRedirected.current =
+                  false;
+              }}
+              className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
             >
               <option value="all">
-                Sale & Rental
+                All Products
               </option>
 
               <option value="sale">
@@ -664,7 +1190,62 @@ Source: Health Nations Marketplace`
               <option value="rental">
                 For Rental
               </option>
+
+              <option value="spare-parts">
+                Spare Parts
+              </option>
             </select>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
+              <Globe2 className="h-3.5 w-3.5" />
+
+              {selectedCountry ===
+              "all"
+                ? "Global Marketplace"
+                : selectedCountry}
+            </span>
+
+            {selectedType !==
+              "all" && (
+              <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
+                {selectedType ===
+                "sale"
+                  ? "For Sale"
+                  : selectedType ===
+                      "rental"
+                    ? "For Rental"
+                    : "Spare Parts"}
+              </span>
+            )}
+
+            {selectedCategory !==
+              "all" && (
+              <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
+                {
+                  selectedCategory
+                }
+              </span>
+            )}
+
+            {(search ||
+              selectedCountry !==
+                "all" ||
+              selectedCategory !==
+                "all" ||
+              selectedType !==
+                "all") && (
+              <button
+                type="button"
+                onClick={
+                  clearFilters
+                }
+                className="ml-auto text-xs font-bold text-blue-700 hover:underline"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -673,12 +1254,28 @@ Source: Health Nations Marketplace`
         <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-950">
-              Marketplace Products
+              {selectedType ===
+              "rental"
+                ? "Medical Equipment Rental"
+                : selectedType ===
+                    "sale"
+                  ? "Medical Equipment For Sale"
+                  : selectedType ===
+                      "spare-parts"
+                    ? "Medical Equipment Spare Parts"
+                    : selectedCountry !==
+                        "all"
+                      ? `Medical Products in ${selectedCountry}`
+                      : "Global Marketplace Products"}
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              {filteredProducts.length} product
-              {filteredProducts.length === 1
+              {
+                filteredProducts.length
+              }{" "}
+              product
+              {filteredProducts.length ===
+              1
                 ? ""
                 : "s"}{" "}
               found
@@ -686,7 +1283,9 @@ Source: Health Nations Marketplace`
 
             {search.trim() && (
               <p className="mt-1 text-sm font-medium text-blue-700">
-                Search: &quot;{search.trim()}&quot;
+                Search: &quot;
+                {search.trim()}
+                &quot;
               </p>
             )}
           </div>
@@ -708,14 +1307,16 @@ Source: Health Nations Marketplace`
               <Loader2 className="mx-auto h-8 w-8 animate-spin text-blue-600" />
 
               <p className="mt-3 text-slate-500">
-                Loading marketplace...
+                Loading global
+                marketplace...
               </p>
             </div>
           </div>
         ) : errorMessage ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
             <p className="font-semibold">
-              Unable to load marketplace
+              Unable to load
+              marketplace
             </p>
 
             <p className="mt-2 text-sm">
@@ -734,63 +1335,18 @@ Source: Health Nations Marketplace`
           </div>
         ) : filteredProducts.length ===
           0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50">
-              <Package className="h-8 w-8 text-blue-700" />
-            </div>
-
-            {search.trim() ? (
-              <>
-                <h3 className="mt-5 text-2xl font-black text-slate-900">
-                  المنتج غير موجود حاليًا
-                </h3>
-
-                <p
-                  className="mx-auto mt-3 max-w-xl text-slate-600"
-                  dir="rtl"
-                >
-                  لم نجد &quot;
-                  <strong>
-                    {search.trim()}
-                  </strong>
-                  &quot; ضمن المنتجات الحالية.
-                  تواصل مع صحة الأمم وسنساعدك في
-                  توفيره.
-                </p>
-
-                <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-                  Product not listed? Health Nations
-                  can help source it for you.
-                </p>
-
-                {missingProductWhatsappUrl && (
-                  <a
-                    href={
-                      missingProductWhatsappUrl
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mx-auto mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-7 py-4 font-black text-white transition hover:bg-emerald-700"
-                  >
-                    <MessageCircle className="h-5 w-5" />
-
-                    طلب المنتج عبر واتساب
-                  </a>
-                )}
-              </>
-            ) : (
-              <>
-                <h3 className="mt-5 text-xl font-bold text-slate-900">
-                  No products found
-                </h3>
-
-                <p className="mx-auto mt-2 max-w-lg text-slate-500">
-                  No marketplace products currently
-                  match your filters.
-                </p>
-              </>
-            )}
-          </div>
+          <EmptyMarketplace
+            search={search}
+            selectedType={
+              selectedType
+            }
+            selectedCountry={
+              selectedCountry
+            }
+            missingProductWhatsappUrl={
+              missingProductWhatsappUrl
+            }
+          />
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map(
@@ -805,6 +1361,195 @@ Source: Health Nations Marketplace`
         )}
       </section>
     </main>
+  );
+}
+
+function EmptyMarketplace({
+  search,
+  selectedType,
+  selectedCountry,
+  missingProductWhatsappUrl,
+}: {
+  search: string;
+  selectedType: MarketplaceType;
+  selectedCountry: string;
+  missingProductWhatsappUrl: string;
+}) {
+  const requestedProduct =
+    search.trim();
+
+  if (requestedProduct) {
+    return (
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50">
+          <Globe2 className="h-8 w-8 text-blue-700" />
+        </div>
+
+        <h3 className="mt-5 text-2xl font-black text-slate-900">
+          المنتج غير موجود حاليًا
+        </h3>
+
+        <p
+          className="mx-auto mt-3 max-w-xl text-slate-600"
+          dir="rtl"
+        >
+          لم نجد &quot;
+          <strong>
+            {requestedProduct}
+          </strong>
+          &quot; ضمن المنتجات
+          الحالية
+          {selectedCountry !==
+          "all"
+            ? ` في ${selectedCountry}`
+            : " في السوق العالمي"}
+          . تواصل مع صحة الأمم
+          وسنساعدك في البحث عنه
+          وتوفيره.
+        </p>
+
+        <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
+          Search by product name,
+          Part Number, manufacturer
+          or compatible device.
+        </p>
+
+        {missingProductWhatsappUrl && (
+          <a
+            href={
+              missingProductWhatsappUrl
+            }
+            target="_blank"
+            rel="noreferrer"
+            className="mx-auto mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-7 py-4 font-black text-white transition hover:bg-emerald-700"
+          >
+            <MessageCircle className="h-5 w-5" />
+            طلب المنتج عبر واتساب
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (
+    selectedType === "rental"
+  ) {
+    return (
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+        <Tag className="mx-auto h-12 w-12 text-slate-300" />
+
+        <h3 className="mt-4 text-xl font-bold text-slate-900">
+          No rental equipment
+          available
+        </h3>
+
+        <p
+          className="mx-auto mt-2 max-w-lg text-slate-500"
+          dir="rtl"
+        >
+          لا توجد معدات متاحة
+          للتأجير حاليًا ضمن
+          الفلاتر المحددة.
+        </p>
+
+        <a
+          href={createWhatsAppUrl(
+            HEALTH_NATIONS_WHATSAPP,
+            `طلب تأجير معدات طبية من منصة صحة الأمم
+
+السوق: ${
+              selectedCountry ===
+              "all"
+                ? "Global"
+                : selectedCountry
+            }
+
+أرغب في الاستفسار عن الأجهزة والمعدات الطبية المتاحة للتأجير.
+
+Medical Equipment Rental Request
+Source: Health Nations Global Marketplace`
+          )}
+          target="_blank"
+          rel="noreferrer"
+          className="mx-auto mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-7 py-4 font-bold text-white transition hover:bg-emerald-700"
+        >
+          <MessageCircle className="h-5 w-5" />
+          استفسار عن التأجير
+        </a>
+      </div>
+    );
+  }
+
+  if (
+    selectedType ===
+    "spare-parts"
+  ) {
+    return (
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+        <Settings className="mx-auto h-12 w-12 text-slate-300" />
+
+        <h3 className="mt-4 text-xl font-bold text-slate-900">
+          No spare parts found
+        </h3>
+
+        <p
+          className="mx-auto mt-2 max-w-lg text-slate-500"
+          dir="rtl"
+        >
+          لا توجد قطع غيار مطابقة
+          للفلاتر الحالية. يمكنك
+          البحث باسم القطعة أو رقم
+          Part Number أو الجهاز
+          المتوافق.
+        </p>
+
+        <a
+          href={createWhatsAppUrl(
+            HEALTH_NATIONS_WHATSAPP,
+            `طلب قطعة غيار جهاز طبي
+
+الدولة / السوق: ${
+              selectedCountry ===
+              "all"
+                ? "جميع الدول"
+                : selectedCountry
+            }
+
+أرغب في البحث عن قطعة غيار لجهاز طبي.
+
+يرجى طلب:
+- اسم الجهاز
+- الشركة المصنعة
+- الموديل
+- Part Number إن وجد
+
+Source: Health Nations Global Marketplace`
+          )}
+          target="_blank"
+          rel="noreferrer"
+          className="mx-auto mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-7 py-4 font-bold text-white transition hover:bg-emerald-700"
+        >
+          <MessageCircle className="h-5 w-5" />
+          اطلب قطعة غيار
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+      <Package className="mx-auto h-12 w-12 text-slate-300" />
+
+      <h3 className="mt-4 text-xl font-bold text-slate-900">
+        No products found
+      </h3>
+
+      <p className="mx-auto mt-2 max-w-lg text-slate-500">
+        No global marketplace
+        products currently match
+        your filters.
+      </p>
+    </div>
   );
 }
 
@@ -842,6 +1587,79 @@ function ProductCard({
   const supplier =
     product.supplier;
 
+  const productName =
+    product.name_en ||
+    product.name_ar ||
+    "Medical Product";
+
+  const supplierName =
+    supplier?.company_name_en ||
+    supplier?.company_name_ar ||
+    "Supplier";
+
+  const supplierLocation = [
+    supplier?.city,
+    supplier?.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const sparePart =
+    isSparePartProduct(
+      product
+    );
+
+  const condition =
+    formatCondition(
+      product.part_condition
+    );
+
+  const whatsappUrl =
+    createWhatsAppUrl(
+      HEALTH_NATIONS_WHATSAPP,
+      sparePart
+        ? `استفسار عن قطعة غيار من منصة صحة الأمم
+
+قطعة الغيار: ${productName}
+رقم المنتج: ${product.id}
+Part Number: ${product.part_number || "غير محدد"}
+Manufacturer: ${product.manufacturer || product.brand || "غير محدد"}
+Compatible Device: ${product.compatible_device || "غير محدد"}
+Compatible Model: ${product.model || "غير محدد"}
+Condition: ${condition || "غير محدد"}
+
+المورد: ${supplierName}
+دولة المورد: ${supplier?.country || "غير محدد"}
+
+أرغب في معرفة السعر والتوفر والتفاصيل.
+
+Medical Spare Part Inquiry
+Product: ${productName}
+Product ID: ${product.id}
+Part Number: ${product.part_number || "Not specified"}
+Manufacturer: ${product.manufacturer || product.brand || "Not specified"}
+Compatible Device: ${product.compatible_device || "Not specified"}
+Model: ${product.model || "Not specified"}
+Supplier: ${supplierName}
+Supplier Country: ${supplier?.country || "Not specified"}
+Source: Health Nations Global Marketplace`
+        : `استفسار عن منتج من منصة صحة الأمم
+
+المنتج: ${productName}
+رقم المنتج: ${product.id}
+المورد: ${supplierName}
+دولة المورد: ${supplier?.country || "غير محدد"}
+
+أرغب في معرفة السعر والتوفر والتفاصيل.
+
+Product Inquiry
+Product: ${productName}
+Product ID: ${product.id}
+Supplier: ${supplierName}
+Supplier Country: ${supplier?.country || "Not specified"}
+Source: Health Nations Global Marketplace`
+    );
+
   return (
     <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
       <Link
@@ -851,17 +1669,19 @@ function ProductCard({
         <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
           {product.image_url ? (
             <img
-              src={product.image_url}
-              alt={
-                product.name_en ||
-                product.name_ar ||
-                "Medical product"
+              src={
+                product.image_url
               }
+              alt={productName}
               className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <ImageIcon className="h-12 w-12 text-slate-300" />
+              {sparePart ? (
+                <Settings className="h-12 w-12 text-slate-300" />
+              ) : (
+                <ImageIcon className="h-12 w-12 text-slate-300" />
+              )}
             </div>
           )}
 
@@ -878,7 +1698,21 @@ function ProductCard({
                 Rental
               </span>
             )}
+
+            {sparePart && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white">
+                <Settings className="h-3 w-3" />
+                Spare Part
+              </span>
+            )}
           </div>
+
+          {supplier?.country && (
+            <div className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full bg-slate-950/80 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
+              <Globe2 className="h-3 w-3" />
+              {supplier.country}
+            </div>
+          )}
         </div>
       </Link>
 
@@ -894,9 +1728,7 @@ function ProductCard({
           className="block"
         >
           <h3 className="line-clamp-2 text-lg font-bold text-slate-950 transition hover:text-blue-700">
-            {product.name_en ||
-              product.name_ar ||
-              "Medical Product"}
+            {productName}
           </h3>
         </Link>
 
@@ -910,16 +1742,86 @@ function ProductCard({
             </p>
           )}
 
-        {(product.brand ||
-          product.model) && (
-          <p className="mt-3 text-sm text-slate-500">
-            {[
-              product.brand,
-              product.model,
-            ]
-              .filter(Boolean)
-              .join(" • ")}
-          </p>
+        {sparePart ? (
+          <div className="mt-4 space-y-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
+            {product.part_number && (
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="text-slate-500">
+                  Part No.
+                </span>
+
+                <strong className="break-all text-right text-slate-900">
+                  {
+                    product.part_number
+                  }
+                </strong>
+              </div>
+            )}
+
+            {(product.manufacturer ||
+              product.brand) && (
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="text-slate-500">
+                  Manufacturer
+                </span>
+
+                <strong className="text-right text-slate-900">
+                  {product.manufacturer ||
+                    product.brand}
+                </strong>
+              </div>
+            )}
+
+            {product.compatible_device && (
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="text-slate-500">
+                  Compatible
+                </span>
+
+                <strong className="text-right text-slate-900">
+                  {
+                    product.compatible_device
+                  }
+                </strong>
+              </div>
+            )}
+
+            {product.model && (
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="text-slate-500">
+                  Model
+                </span>
+
+                <strong className="text-right text-slate-900">
+                  {product.model}
+                </strong>
+              </div>
+            )}
+
+            {condition && (
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="text-slate-500">
+                  Condition
+                </span>
+
+                <strong className="text-right text-amber-800">
+                  {condition}
+                </strong>
+              </div>
+            )}
+          </div>
+        ) : (
+          (product.brand ||
+            product.model) && (
+            <p className="mt-3 text-sm text-slate-500">
+              {[
+                product.brand,
+                product.model,
+              ]
+                .filter(Boolean)
+                .join(" • ")}
+            </p>
+          )
         )}
 
         <div className="mt-4 border-t border-slate-100 pt-4">
@@ -957,7 +1859,8 @@ function ProductCard({
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-500">
-          {product.stock !== null && (
+          {product.stock !==
+            null && (
             <span>
               Stock:{" "}
               <strong className="text-slate-700">
@@ -984,9 +1887,18 @@ function ProductCard({
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
         >
           View Product Details
-
           <ChevronRight className="h-4 w-4" />
         </Link>
+
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Contact Health Nations
+        </a>
 
         {supplier && (
           <div className="mt-5 border-t border-slate-100 pt-4">
@@ -994,11 +1906,11 @@ function ProductCard({
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100">
                 {supplier.logo_url ? (
                   <img
-                    src={supplier.logo_url}
+                    src={
+                      supplier.logo_url
+                    }
                     alt={
-                      supplier.company_name_en ||
-                      supplier.company_name_ar ||
-                      "Supplier"
+                      supplierName
                     }
                     className="h-full w-full object-cover"
                   />
@@ -1010,9 +1922,7 @@ function ProductCard({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1">
                   <p className="truncate text-sm font-semibold text-slate-800">
-                    {supplier.company_name_en ||
-                      supplier.company_name_ar ||
-                      "Supplier"}
+                    {supplierName}
                   </p>
 
                   {supplier.verified && (
@@ -1020,15 +1930,12 @@ function ProductCard({
                   )}
                 </div>
 
-                {(supplier.city ||
-                  supplier.country) && (
-                  <p className="truncate text-xs text-slate-500">
-                    {[
-                      supplier.city,
-                      supplier.country,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
+                {supplierLocation && (
+                  <p className="mt-1 flex items-center gap-1 truncate text-xs text-slate-500">
+                    <Globe2 className="h-3 w-3 shrink-0" />
+                    {
+                      supplierLocation
+                    }
                   </p>
                 )}
               </div>
@@ -1040,7 +1947,6 @@ function ProductCard({
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
                 View Supplier Store
-
                 <ChevronRight className="h-4 w-4" />
               </Link>
             )}
@@ -1051,14 +1957,37 @@ function ProductCard({
   );
 }
 
-function createWhatsAppUrl(
-  phone: string,
-  message: string
+function getErrorMessage(
+  error: unknown,
+  fallback: string
 ) {
-  const normalizedPhone =
-    phone.replace(/\D/g, "");
+  if (
+    error instanceof Error
+  ) {
+    return error.message;
+  }
 
-  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(
-    message
-  )}`;
+  if (
+    typeof error ===
+      "object" &&
+    error !== null &&
+    "message" in error
+  ) {
+    return String(
+      (
+        error as {
+          message?: unknown;
+        }
+      ).message
+    );
+  }
+
+  if (
+    typeof error ===
+    "string"
+  ) {
+    return error;
+  }
+
+  return fallback;
 }

@@ -18,6 +18,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings,
   Trash2,
 } from "lucide-react";
 
@@ -31,23 +32,45 @@ type ProductStatus =
   | "rejected"
   | "suspended";
 
+type ProductKind =
+  | "equipment"
+  | "consumable"
+  | "spare_part";
+
 type Product = {
   id: number;
   supplier_id: string;
+
+  product_kind: ProductKind | null;
+
   name_en: string;
   name_ar: string | null;
+
   category: string | null;
   brand: string | null;
   model: string | null;
+
+  part_number: string | null;
+  manufacturer: string | null;
+  compatible_device: string | null;
+  part_condition: string | null;
+
   image_url: string | null;
+
   sale_price: number | null;
   currency: string | null;
   stock: number | null;
+
   available_for_sale: boolean | null;
   available_for_rental: boolean | null;
+
   status: ProductStatus | null;
   created_at: string | null;
 };
+
+type TypeFilter =
+  | "all"
+  | ProductKind;
 
 export default function VendorProductsPage() {
   const router = useRouter();
@@ -60,6 +83,9 @@ export default function VendorProductsPage() {
 
   const [statusFilter, setStatusFilter] =
     useState("all");
+
+  const [typeFilter, setTypeFilter] =
+    useState<TypeFilter>("all");
 
   const [loading, setLoading] =
     useState(true);
@@ -95,11 +121,16 @@ export default function VendorProductsPage() {
           .select(`
             id,
             supplier_id,
+            product_kind,
             name_en,
             name_ar,
             category,
             brand,
             model,
+            part_number,
+            manufacturer,
+            compatible_device,
+            part_condition,
             image_url,
             sale_price,
             currency,
@@ -162,6 +193,10 @@ export default function VendorProductsPage() {
           product.brand,
           product.model,
           product.category,
+          product.part_number,
+          product.manufacturer,
+          product.compatible_device,
+          product.part_condition,
         ].some((value) =>
           value
             ?.toLowerCase()
@@ -172,15 +207,23 @@ export default function VendorProductsPage() {
         statusFilter === "all" ||
         product.status === statusFilter;
 
+      const matchesType =
+        typeFilter === "all" ||
+        normalizeProductKind(
+          product.product_kind
+        ) === typeFilter;
+
       return (
         matchesSearch &&
-        matchesStatus
+        matchesStatus &&
+        matchesType
       );
     });
   }, [
     products,
     search,
     statusFilter,
+    typeFilter,
   ]);
 
   async function deleteProduct(
@@ -284,6 +327,14 @@ export default function VendorProductsPage() {
         product.status === "pending"
     ).length;
 
+  const spareParts =
+    products.filter(
+      (product) =>
+        normalizeProductKind(
+          product.product_kind
+        ) === "spare_part"
+    ).length;
+
   const outOfStockProducts =
     products.filter(
       (product) =>
@@ -293,7 +344,6 @@ export default function VendorProductsPage() {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 md:px-8">
       <div className="mx-auto max-w-7xl">
-
         <button
           type="button"
           onClick={() =>
@@ -308,10 +358,9 @@ export default function VendorProductsPage() {
         </button>
 
         <header className="flex flex-col gap-5 rounded-3xl bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
-
           <div>
             <p className="text-sm font-bold uppercase tracking-wide text-blue-700">
-              Vendor Dashboard
+              Global Vendor Dashboard
             </p>
 
             <h1 className="mt-1 text-3xl font-black">
@@ -319,12 +368,11 @@ export default function VendorProductsPage() {
             </h1>
 
             <p className="mt-2 text-slate-600">
-              إدارة منتجات المتجر والأسعار والمخزون وحالة المراجعة.
+              إدارة الأجهزة والمستهلكات وقطع الغيار والأسعار والمخزون.
             </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-
             <button
               type="button"
               onClick={() =>
@@ -348,18 +396,14 @@ export default function VendorProductsPage() {
               <Plus size={20} />
               Add Product | إضافة منتج
             </button>
-
           </div>
         </header>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard
             label="Total Products"
             value={totalProducts}
-            icon={
-              <Package size={22} />
-            }
+            icon={<Package size={22} />}
           />
 
           <StatCard
@@ -371,9 +415,13 @@ export default function VendorProductsPage() {
           <StatCard
             label="Pending"
             value={pendingProducts}
-            icon={
-              <Loader2 size={22} />
-            }
+            icon={<Loader2 size={22} />}
+          />
+
+          <StatCard
+            label="Spare Parts"
+            value={spareParts}
+            icon={<Settings size={22} />}
           />
 
           <StatCard
@@ -381,15 +429,11 @@ export default function VendorProductsPage() {
             value={outOfStockProducts}
             icon={<Boxes size={22} />}
           />
-
         </section>
 
         <section className="mt-6 rounded-3xl bg-white p-5 shadow-sm">
-
-          <div className="grid gap-4 md:grid-cols-[1fr_220px]">
-
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px_220px]">
             <label className="relative block">
-
               <Search
                 size={19}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -403,10 +447,36 @@ export default function VendorProductsPage() {
                   )
                 }
                 className="w-full rounded-2xl border border-slate-200 py-3 pl-12 pr-4 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
-                placeholder="Search products | ابحث عن منتج"
+                placeholder="Product, Part Number, Brand, Device..."
               />
-
             </label>
+
+            <select
+              value={typeFilter}
+              onChange={(event) =>
+                setTypeFilter(
+                  event.target
+                    .value as TypeFilter
+                )
+              }
+              className="rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
+            >
+              <option value="all">
+                All Product Types
+              </option>
+
+              <option value="equipment">
+                Medical Equipment
+              </option>
+
+              <option value="consumable">
+                Medical Consumables
+              </option>
+
+              <option value="spare_part">
+                Medical Spare Parts
+              </option>
+            </select>
 
             <select
               value={statusFilter}
@@ -441,13 +511,11 @@ export default function VendorProductsPage() {
                 Suspended
               </option>
             </select>
-
           </div>
         </section>
 
         {errorMessage && (
           <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-
             <AlertCircle
               className="mt-0.5 shrink-0"
               size={20}
@@ -456,25 +524,20 @@ export default function VendorProductsPage() {
             <span>
               {errorMessage}
             </span>
-
           </div>
         )}
 
         <section className="mt-6 overflow-hidden rounded-3xl bg-white shadow-sm">
-
           {loading ? (
             <div className="flex min-h-72 items-center justify-center gap-3">
-
               <Loader2 className="animate-spin text-blue-700" />
 
               <span className="font-bold text-slate-600">
                 Loading products...
               </span>
-
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex min-h-80 flex-col items-center justify-center p-8 text-center">
-
               <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50 text-blue-700">
                 <Package size={30} />
               </div>
@@ -484,7 +547,7 @@ export default function VendorProductsPage() {
               </h2>
 
               <p className="mt-2 max-w-md leading-7 text-slate-500">
-                لم تتم إضافة منتجات إلى متجرك حتى الآن.
+                لا توجد منتجات مطابقة للبحث أو الفلاتر الحالية.
               </p>
 
               <button
@@ -497,20 +560,24 @@ export default function VendorProductsPage() {
                 className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-blue-700 px-6 py-3 font-bold text-white"
               >
                 <Plus size={19} />
-                Add First Product
+                Add Product
               </button>
-
             </div>
           ) : (
             <div className="overflow-x-auto">
-
-              <table className="w-full min-w-[1000px] text-left">
-
+              <table className="w-full min-w-[1180px] text-left">
                 <thead className="bg-slate-50 text-sm text-slate-500">
-
                   <tr>
                     <th className="px-6 py-4 font-bold">
                       Product
+                    </th>
+
+                    <th className="px-6 py-4 font-bold">
+                      Type
+                    </th>
+
+                    <th className="px-6 py-4 font-bold">
+                      Part / Device
                     </th>
 
                     <th className="px-6 py-4 font-bold">
@@ -533,205 +600,268 @@ export default function VendorProductsPage() {
                       Actions
                     </th>
                   </tr>
-
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-
                   {filteredProducts.map(
-                    (product) => (
-                      <tr
-                        key={product.id}
-                        className="transition hover:bg-slate-50"
-                      >
+                    (product) => {
+                      const productKind =
+                        normalizeProductKind(
+                          product.product_kind
+                        );
 
-                        <td className="px-6 py-4">
+                      return (
+                        <tr
+                          key={product.id}
+                          className="transition hover:bg-slate-50"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-4">
+                              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+                                {product.image_url ? (
+                                  <img
+                                    src={
+                                      product.image_url
+                                    }
+                                    alt={
+                                      product.name_en
+                                    }
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : productKind ===
+                                  "spare_part" ? (
+                                  <Settings
+                                    size={23}
+                                    className="text-slate-400"
+                                  />
+                                ) : (
+                                  <Package
+                                    size={23}
+                                    className="text-slate-400"
+                                  />
+                                )}
+                              </div>
 
-                          <div className="flex items-center gap-4">
-
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
-
-                              {product.image_url ? (
-                                <img
-                                  src={
-                                    product.image_url
-                                  }
-                                  alt={
+                              <div>
+                                <strong className="block">
+                                  {
                                     product.name_en
                                   }
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <Package
-                                  size={23}
-                                  className="text-slate-400"
-                                />
-                              )}
+                                </strong>
 
-                            </div>
+                                {product.name_ar && (
+                                  <span
+                                    className="mt-1 block text-sm text-slate-500"
+                                    dir="rtl"
+                                  >
+                                    {
+                                      product.name_ar
+                                    }
+                                  </span>
+                                )}
 
-                            <div>
+                                <span className="mt-1 block text-xs text-slate-400">
+                                  {product.brand ||
+                                    product.manufacturer ||
+                                    "No brand"}
 
-                              <strong className="block">
-                                {
-                                  product.name_en
-                                }
-                              </strong>
-
-                              {product.name_ar && (
-                                <span
-                                  className="mt-1 block text-sm text-slate-500"
-                                  dir="rtl"
-                                >
-                                  {
-                                    product.name_ar
-                                  }
+                                  {product.model
+                                    ? ` • ${product.model}`
+                                    : ""}
                                 </span>
-                              )}
-
-                              <span className="mt-1 block text-xs text-slate-400">
-                                {product.brand ||
-                                  "No brand"}
-
-                                {product.model
-                                  ? ` • ${product.model}`
-                                  : ""}
-                              </span>
-
+                              </div>
                             </div>
+                          </td>
 
-                          </div>
-
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-                            {product.category ||
-                              "Uncategorized"}
-                          </span>
-                        </td>
-
-                        <td className="px-6 py-4 font-bold">
-
-                          {product.available_for_sale &&
-                          product.sale_price !== null
-                            ? `${Number(
-                                product.sale_price
-                              ).toLocaleString()} ${
-                                product.currency ||
-                                ""
-                              }`
-                            : product.available_for_rental
-                              ? "Rental"
-                              : "Request Quote"}
-
-                        </td>
-
-                        <td className="px-6 py-4">
-
-                          <span
-                            className={`font-bold ${
-                              (product.stock ??
-                                0) > 0
-                                ? "text-emerald-700"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {product.stock ??
-                              0}
-                          </span>
-
-                        </td>
-
-                        <td className="px-6 py-4">
-
-                          <StatusBadge
-                            status={
-                              product.status ??
-                              "draft"
-                            }
-                          />
-
-                        </td>
-
-                        <td className="px-6 py-4">
-
-                          <div className="flex items-center gap-2">
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                router.push(
-                                  `/vendor/products/${product.id}`
-                                )
+                          <td className="px-6 py-4">
+                            <ProductKindBadge
+                              kind={
+                                productKind
                               }
-                              className="rounded-xl bg-slate-100 p-2.5 text-slate-700 transition hover:bg-slate-200"
-                              aria-label="Preview product"
+                            />
+                          </td>
+
+                          <td className="px-6 py-4">
+                            {productKind ===
+                            "spare_part" ? (
+                              <div className="space-y-1">
+                                <strong className="block text-sm text-slate-900">
+                                  {product.part_number ||
+                                    "No Part Number"}
+                                </strong>
+
+                                {product.compatible_device && (
+                                  <span className="block max-w-[220px] text-xs text-slate-500">
+                                    For:{" "}
+                                    {
+                                      product.compatible_device
+                                    }
+                                  </span>
+                                )}
+
+                                {product.part_condition && (
+                                  <span className="block text-xs font-bold capitalize text-blue-700">
+                                    {
+                                      product.part_condition
+                                    }
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-slate-500">
+                                {product.model ||
+                                  "—"}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+                              {product.category ||
+                                "Uncategorized"}
+                            </span>
+                          </td>
+
+                          <td className="px-6 py-4 font-bold">
+                            {product.available_for_sale &&
+                            product.sale_price !==
+                              null
+                              ? `${Number(
+                                  product.sale_price
+                                ).toLocaleString()} ${
+                                  product.currency ||
+                                  ""
+                                }`
+                              : product.available_for_rental
+                                ? "Rental"
+                                : "Contact"}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <span
+                              className={`font-bold ${
+                                (product.stock ??
+                                  0) > 0
+                                  ? "text-emerald-700"
+                                  : "text-red-600"
+                              }`}
                             >
-                              <Eye size={18} />
-                            </button>
+                              {product.stock ??
+                                0}
+                            </span>
+                          </td>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                router.push(
-                                  `/vendor/products/${product.id}/edit`
-                                )
+                          <td className="px-6 py-4">
+                            <StatusBadge
+                              status={
+                                product.status ??
+                                "draft"
                               }
-                              className="rounded-xl bg-blue-50 p-2.5 text-blue-700 transition hover:bg-blue-100"
-                              aria-label="Edit product"
-                            >
-                              <Edit3 size={18} />
-                            </button>
+                            />
+                          </td>
 
-                            <button
-                              type="button"
-                              disabled={
-                                deletingId ===
-                                product.id
-                              }
-                              onClick={() =>
-                                void deleteProduct(
-                                  product
-                                )
-                              }
-                              className="rounded-xl bg-red-50 p-2.5 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
-                              aria-label="Delete product"
-                            >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(
+                                    `/vendor/products/${product.id}`
+                                  )
+                                }
+                                className="rounded-xl bg-slate-100 p-2.5 text-slate-700 transition hover:bg-slate-200"
+                                aria-label="Preview product"
+                              >
+                                <Eye size={18} />
+                              </button>
 
-                              {deletingId ===
-                              product.id ? (
-                                <Loader2
-                                  size={18}
-                                  className="animate-spin"
-                                />
-                              ) : (
-                                <Trash2
-                                  size={18}
-                                />
-                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(
+                                    `/vendor/products/${product.id}/edit`
+                                  )
+                                }
+                                className="rounded-xl bg-blue-50 p-2.5 text-blue-700 transition hover:bg-blue-100"
+                                aria-label="Edit product"
+                              >
+                                <Edit3 size={18} />
+                              </button>
 
-                            </button>
-
-                          </div>
-
-                        </td>
-
-                      </tr>
-                    )
+                              <button
+                                type="button"
+                                disabled={
+                                  deletingId ===
+                                  product.id
+                                }
+                                onClick={() =>
+                                  void deleteProduct(
+                                    product
+                                  )
+                                }
+                                className="rounded-xl bg-red-50 p-2.5 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                                aria-label="Delete product"
+                              >
+                                {deletingId ===
+                                product.id ? (
+                                  <Loader2
+                                    size={18}
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <Trash2
+                                    size={18}
+                                  />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
           )}
-
         </section>
-
       </div>
     </main>
+  );
+}
+
+function ProductKindBadge({
+  kind,
+}: {
+  kind: ProductKind;
+}) {
+  const styles: Record<
+    ProductKind,
+    string
+  > = {
+    equipment:
+      "bg-blue-100 text-blue-800",
+    consumable:
+      "bg-emerald-100 text-emerald-800",
+    spare_part:
+      "bg-amber-100 text-amber-800",
+  };
+
+  const labels: Record<
+    ProductKind,
+    string
+  > = {
+    equipment: "Equipment",
+    consumable: "Consumable",
+    spare_part: "Spare Part",
+  };
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${styles[kind]}`}
+    >
+      {labels[kind]}
+    </span>
   );
 }
 
@@ -746,11 +876,8 @@ function StatCard({
 }) {
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm">
-
       <div className="flex items-center justify-between">
-
         <div>
-
           <p className="text-sm font-bold text-slate-500">
             {label}
           </p>
@@ -758,15 +885,12 @@ function StatCard({
           <strong className="mt-2 block text-3xl font-black">
             {value}
           </strong>
-
         </div>
 
         <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
           {icon}
         </div>
-
       </div>
-
     </div>
   );
 }
@@ -814,6 +938,19 @@ function StatusBadge({
       {labels[status]}
     </span>
   );
+}
+
+function normalizeProductKind(
+  value: ProductKind | null
+): ProductKind {
+  if (
+    value === "consumable" ||
+    value === "spare_part"
+  ) {
+    return value;
+  }
+
+  return "equipment";
 }
 
 function getErrorMessage(

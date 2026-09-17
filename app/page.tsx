@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ChangeEvent,
-  useRef,
-  useState,
-} from "react";
+import { ChangeEvent, useRef, useState } from "react";
 
 import {
   Activity,
@@ -15,6 +11,7 @@ import {
   Building2,
   Camera,
   FileText,
+  Globe2,
   HeartHandshake,
   HeartPulse,
   Home as HomeIcon,
@@ -24,11 +21,13 @@ import {
   Phone,
   Plane,
   Search,
+  Settings,
   ShoppingBag,
   ShoppingCart,
   Stethoscope,
   Users,
   WalletCards,
+  Wrench,
   X,
 } from "lucide-react";
 
@@ -43,7 +42,16 @@ type PlatformCard = {
   icon: React.ReactNode;
 };
 
-const categories = [
+type Category = {
+  en: string;
+  ar: string;
+  itemsEn: string;
+  itemsAr: string;
+  search: string;
+  icon: React.ReactNode;
+};
+
+const categories: Category[] = [
   {
     en: "Physiotherapy Equipment",
     ar: "أجهزة العلاج الطبيعي",
@@ -51,6 +59,8 @@ const categories = [
       "Shockwave, TECAR, Electrotherapy, TENS, Ultrasound, Laser Therapy, CPM, Traction, Cryotherapy",
     itemsAr:
       "شوك ويف، تيكار، علاج كهربائي، تنس، موجات فوق صوتية، ليزر علاجي، سي بي إم، شد، علاج بالتبريد",
+    search: "Physiotherapy Equipment",
+    icon: <Activity size={25} />,
   },
   {
     en: "Gynecology & Obstetrics",
@@ -59,6 +69,8 @@ const categories = [
       "Colposcopes, Fetal Monitors, CTG, Ultrasound Systems, Examination Chairs, Delivery Beds",
     itemsAr:
       "مناظير عنق الرحم، أجهزة مراقبة الجنين، تخطيط الجنين، السونار، كراسي الفحص، أسرة الولادة",
+    search: "Gynecology Obstetrics",
+    icon: <HeartPulse size={25} />,
   },
   {
     en: "Aesthetic & Dermatology",
@@ -67,6 +79,8 @@ const categories = [
       "Diode Laser, IPL, CO₂ Laser, HIFU, RF Microneedling, Cryolipolysis, Skin Analyzer",
     itemsAr:
       "ليزر دايود، آي بي إل، ليزر ثاني أكسيد الكربون، هايفو، تردد حراري، كرايو، محلل البشرة",
+    search: "Aesthetic Dermatology",
+    icon: <Stethoscope size={25} />,
   },
   {
     en: "Surgical Instruments",
@@ -75,6 +89,8 @@ const categories = [
       "Forceps, Scissors, Needle Holders, Retractors, Clamps, Laparoscopic Instruments",
     itemsAr:
       "ملاقط، مقصات، ماسكات إبر، مبعدات، مشابك، أدوات مناظير جراحية",
+    search: "Surgical Instruments",
+    icon: <Stethoscope size={25} />,
   },
   {
     en: "Medical Consumables",
@@ -83,6 +99,8 @@ const categories = [
       "Syringes, Cannulas, IV Sets, Gloves, Gowns, Drapes, Sutures, Wound Care",
     itemsAr:
       "سرنجات، كانيولا، أطقم محاليل، قفازات، جاونات، أغطية جراحية، خيوط، عناية بالجروح",
+    search: "Medical Consumables",
+    icon: <PackageSearch size={25} />,
   },
   {
     en: "Hospital & Critical Care",
@@ -91,6 +109,18 @@ const categories = [
       "Patient Monitors, Ventilators, Infusion Pumps, Defibrillators, Beds, Medical Gas Systems",
     itemsAr:
       "شاشات مرضى، أجهزة تنفس صناعي، مضخات محاليل، أجهزة صدمات، أسرة، غازات طبية",
+    search: "Hospital Critical Care",
+    icon: <HeartPulse size={25} />,
+  },
+  {
+    en: "Medical Equipment Spare Parts",
+    ar: "قطع غيار الأجهزة الطبية",
+    itemsEn:
+      "Boards, Sensors, Cables, Batteries, Power Supplies, Motors, Pumps, Probes, Connectors and Device Parts",
+    itemsAr:
+      "بوردات، حساسات، كابلات، بطاريات، مزودات طاقة، مواتير، مضخات، مجسات، وصلات وقطع غيار الأجهزة الطبية",
+    search: "Medical Equipment Spare Parts",
+    icon: <Settings size={25} />,
   },
 ];
 
@@ -109,8 +139,10 @@ export default function Home() {
   const [imageSearching, setImageSearching] =
     useState(false);
 
-  const [imageSearchError, setImageSearchError] =
-    useState("");
+  const [
+    imageSearchError,
+    setImageSearchError,
+  ] = useState("");
 
   const imageInputRef =
     useRef<HTMLInputElement | null>(null);
@@ -125,7 +157,9 @@ export default function Home() {
     }
 
     router.push(
-      `/store?search=${encodeURIComponent(query)}`
+      `/store?search=${encodeURIComponent(
+        query
+      )}`
     );
   };
 
@@ -200,14 +234,24 @@ export default function Home() {
 
   const platformCards: PlatformCard[] = [
     {
-      titleEn: "Medical Marketplace",
-      titleAr: "سوق المعدات الطبية",
+      titleEn: "Global Medical Marketplace",
+      titleAr: "السوق الطبي العالمي",
       descriptionEn:
-        "Browse medical equipment, supplies and products from healthcare suppliers.",
+        "Browse medical equipment, supplies and healthcare products from suppliers around the world.",
       descriptionAr:
-        "تصفح المعدات والمستلزمات والمنتجات الطبية من الموردين.",
+        "تصفح المعدات والمستلزمات والمنتجات الطبية من موردين من مختلف دول العالم.",
       href: "/store",
-      icon: <ShoppingBag size={27} />,
+      icon: <Globe2 size={27} />,
+    },
+    {
+      titleEn: "Medical Spare Parts",
+      titleAr: "قطع غيار الأجهزة الطبية",
+      descriptionEn:
+        "Find medical equipment spare parts by device, brand, model or part number.",
+      descriptionAr:
+        "ابحث عن قطع غيار الأجهزة الطبية حسب الجهاز أو الشركة أو الموديل أو رقم القطعة.",
+      href: "/store?search=Medical%20Equipment%20Spare%20Parts",
+      icon: <Settings size={27} />,
     },
     {
       titleEn: "Home Care",
@@ -220,12 +264,12 @@ export default function Home() {
       icon: <HeartHandshake size={27} />,
     },
     {
-      titleEn: "Import from China",
-      titleAr: "الاستيراد من الصين",
+      titleEn: "Global Sourcing & Import",
+      titleAr: "التوريد والاستيراد العالمي",
       descriptionEn:
-        "Send us the product you need and request sourcing and import services.",
+        "Send us the product you need and request sourcing and import support.",
       descriptionAr:
-        "أرسل المنتج المطلوب واحصل على خدمة البحث والتوريد والاستيراد.",
+        "أرسل المنتج المطلوب واحصل على خدمات البحث والتوريد والاستيراد.",
       href: "/import-request",
       icon: <Plane size={27} />,
     },
@@ -233,19 +277,19 @@ export default function Home() {
       titleEn: "AI Consultant",
       titleAr: "المستشار الطبي الذكي",
       descriptionEn:
-        "Get smart assistance in selecting medical equipment and solutions.",
+        "Get smart assistance in selecting medical equipment and healthcare solutions.",
       descriptionAr:
         "احصل على مساعدة ذكية لاختيار الأجهزة والحلول الطبية المناسبة.",
       href: "/ai-consultant",
       icon: <Bot size={27} />,
     },
     {
-      titleEn: "Suppliers",
-      titleAr: "الموردون",
+      titleEn: "Global Suppliers",
+      titleAr: "الموردون حول العالم",
       descriptionEn:
-        "Discover registered medical suppliers and their products.",
+        "Discover registered medical suppliers and explore their products.",
       descriptionAr:
-        "اكتشف الموردين الطبيين المسجلين ومنتجاتهم.",
+        "اكتشف الموردين الطبيين المسجلين من مختلف الدول وتصفح منتجاتهم.",
       href: "/suppliers",
       icon: <Users size={27} />,
     },
@@ -253,9 +297,9 @@ export default function Home() {
       titleEn: "Become a Supplier",
       titleAr: "سجّل كمورد",
       descriptionEn:
-        "Join Health Nations and start offering your medical products.",
+        "Join Health Nations from anywhere in the world and start offering your medical products.",
       descriptionAr:
-        "انضم إلى صحة الأمم وابدأ بعرض منتجاتك الطبية.",
+        "انضم إلى صحة الأمم من أي دولة وابدأ بعرض منتجاتك الطبية عالميًا.",
       href: "/supplier/register",
       icon: <Building2 size={27} />,
     },
@@ -265,107 +309,166 @@ export default function Home() {
     en: {
       company: "Health Nations Medical",
       slogan:
-        "Smart Medical Solutions for Better Healthcare",
+        "Global Medical Marketplace & Healthcare Solutions",
+
       home: "Home",
-      marketplace: "Marketplace",
+      marketplace: "Global Marketplace",
       homecare: "Home Care",
-      import: "Import",
+      import: "Global Sourcing",
       suppliers: "Suppliers",
       ai: "AI Consultant",
       login: "Login",
+
       heroBadge:
-        "Integrated Healthcare Marketplace",
+        "Global Medical Marketplace",
+
       heroTitle:
-        "Medical Equipment, Home Care & Smart Healthcare Solutions",
+        "Connecting Healthcare Buyers & Medical Suppliers Worldwide",
+
       heroDescription:
-        "One platform connecting medical equipment, suppliers, home healthcare, sourcing, rental and intelligent healthcare solutions.",
-      browse: "Browse Marketplace",
-      quote: "Request a Quote",
+        "Discover medical equipment, consumables, spare parts and healthcare solutions from suppliers around the world through one global platform.",
+
+      browse: "Explore Global Marketplace",
+      quote: "Source a Product",
+
       exploreTitle:
-        "Explore Health Nations Platform",
+        "One Global Platform for Healthcare",
+
       exploreLead:
-        "Access our medical marketplace, home care, suppliers, import services and smart healthcare tools.",
+        "Explore medical products, spare parts, global suppliers, home care, sourcing services and intelligent healthcare solutions.",
+
       categoriesTitle:
-        "Medical Equipment Categories",
+        "Medical Products & Equipment",
+
       categoriesLead:
-        "Explore our key medical equipment, surgical instrument and consumable categories.",
-      servicesTitle: "Business Solutions",
-      rental: "Medical Equipment Rental",
+        "Search medical equipment, consumables, surgical instruments and spare parts from suppliers worldwide.",
+
+      servicesTitle:
+        "Global Business Solutions",
+
+      rental:
+        "Medical Equipment Rental",
+
       rentalText:
-        "Flexible medical equipment rental with installation, training and technical support.",
-      finance: "Equipment Financing",
+        "Explore flexible medical equipment rental opportunities with installation, training and technical support.",
+
+      finance:
+        "Equipment Financing",
+
       financeText:
-        "Choose the equipment you need and request a flexible commercial leasing solution.",
-      catalogs: "Digital Catalog Library",
+        "Choose the equipment you need and request a flexible commercial solution.",
+
+      catalogs:
+        "Global Catalog Library",
+
       catalogsText:
-        "Browse medical equipment catalogs and technical brochures.",
-      aiService: "Medical AI Consultant",
+        "Browse medical equipment catalogs, brochures and technical product information from suppliers.",
+
+      aiService:
+        "Medical AI Consultant",
+
       aiText:
-        "Use smart assistance to identify suitable equipment and healthcare solutions.",
-      contactTitle: "Start With Health Nations",
+        "Use smart assistance to identify suitable medical equipment, products and healthcare solutions.",
+
+      contactTitle:
+        "Connect With Health Nations",
+
       contactText:
-        "Contact us for medical equipment, sourcing, home care, rental and healthcare solutions.",
+        "Looking for medical equipment, spare parts or a specific product? Health Nations can help connect and source globally.",
+
       whatsapp: "WhatsApp",
+
       location:
-        "Riyadh, Saudi Arabia | Sadat City, Egypt",
+        "Global Marketplace | Saudi Arabia | Egypt",
+
       view: "Open",
-      products: "Products",
+      products: "Global Products",
+      openService: "Open Service",
     },
 
     ar: {
-      company: "شركة صحة الأمم الطبية",
+      company:
+        "شركة صحة الأمم الطبية",
+
       slogan:
-        "حلول طبية ذكية لرعاية صحية أفضل",
+        "السوق الطبي العالمي والحلول الصحية",
+
       home: "الرئيسية",
-      marketplace: "المتجر الطبي",
+      marketplace: "السوق العالمي",
       homecare: "الرعاية المنزلية",
-      import: "الاستيراد",
+      import: "التوريد العالمي",
       suppliers: "الموردون",
       ai: "المستشار الذكي",
       login: "تسجيل الدخول",
+
       heroBadge:
-        "منصة متكاملة للرعاية الصحية",
+        "السوق الطبي العالمي",
+
       heroTitle:
-        "المعدات الطبية والرعاية المنزلية والحلول الصحية الذكية",
+        "نربط المشترين والموردين الطبيين من مختلف دول العالم",
+
       heroDescription:
-        "منصة واحدة تجمع المعدات والمستلزمات الطبية والموردين والرعاية المنزلية والاستيراد والتأجير والحلول الصحية الذكية.",
-      browse: "تصفح المتجر الطبي",
-      quote: "اطلب عرض سعر",
+        "اكتشف الأجهزة الطبية والمستلزمات وقطع الغيار والحلول الصحية من موردين حول العالم من خلال منصة عالمية واحدة.",
+
+      browse:
+        "استكشف السوق العالمي",
+
+      quote:
+        "اطلب توفير منتج",
+
       exploreTitle:
-        "استكشف منصة صحة الأمم",
+        "منصة عالمية واحدة للقطاع الصحي",
+
       exploreLead:
-        "ادخل إلى المتجر الطبي وخدمات الرعاية المنزلية والموردين والاستيراد والحلول الصحية الذكية.",
+        "استكشف المنتجات الطبية وقطع الغيار والموردين حول العالم والرعاية المنزلية وخدمات التوريد والحلول الصحية الذكية.",
+
       categoriesTitle:
-        "أقسام المعدات الطبية",
+        "الأجهزة والمنتجات الطبية",
+
       categoriesLead:
-        "استكشف أهم أقسام المعدات الطبية والأدوات الجراحية والمستلزمات.",
+        "ابحث عن الأجهزة والمستلزمات والأدوات الجراحية وقطع الغيار من موردين حول العالم.",
+
       servicesTitle:
-        "حلولنا التجارية",
+        "حلول الأعمال العالمية",
+
       rental:
         "تأجير المعدات الطبية",
+
       rentalText:
-        "حلول مرنة لتأجير المعدات الطبية مع التركيب والتدريب والدعم الفني.",
+        "استكشف حلول تأجير المعدات الطبية مع التركيب والتدريب والدعم الفني.",
+
       finance:
         "تمويل المعدات الطبية",
+
       financeText:
         "اختر الجهاز المطلوب وقدّم طلبك للحصول على حل تجاري مرن.",
+
       catalogs:
-        "مكتبة الكتالوجات",
+        "مكتبة الكتالوجات العالمية",
+
       catalogsText:
-        "تصفح كتالوجات المعدات الطبية والبروشورات والمواصفات الفنية.",
+        "تصفح كتالوجات الأجهزة الطبية والبروشورات والمواصفات الفنية للموردين.",
+
       aiService:
         "المستشار الطبي الذكي",
+
       aiText:
-        "استخدم المساعد الذكي للوصول إلى الأجهزة والحلول الصحية المناسبة.",
+        "استخدم المساعد الذكي للوصول إلى الأجهزة والمنتجات والحلول الصحية المناسبة.",
+
       contactTitle:
-        "ابدأ مع صحة الأمم",
+        "تواصل مع صحة الأمم",
+
       contactText:
-        "تواصل معنا للمعدات الطبية والاستيراد والرعاية المنزلية والتأجير والحلول الصحية.",
+        "تبحث عن جهاز طبي أو قطعة غيار أو منتج محدد؟ صحة الأمم تساعدك في الوصول إليه وتوفيره عالميًا.",
+
       whatsapp: "واتساب",
+
       location:
-        "الرياض، السعودية | مدينة السادات، مصر",
+        "سوق عالمي | السعودية | مصر",
+
       view: "فتح",
-      products: "المنتجات",
+      products: "المنتجات العالمية",
+      openService: "فتح الخدمة",
     },
   };
 
@@ -403,6 +506,8 @@ export default function Home() {
       dir={isArabic ? "rtl" : "ltr"}
       className="min-h-screen bg-slate-50 text-slate-900"
     >
+      {/* HEADER */}
+
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
           <Link
@@ -433,7 +538,9 @@ export default function Home() {
                   className="inline-flex items-center gap-1 text-sm font-bold text-slate-700 transition hover:text-blue-700"
                 >
                   {index === 0 && (
-                    <HomeIcon size={16} />
+                    <HomeIcon
+                      size={16}
+                    />
                   )}
 
                   {item.label}
@@ -443,6 +550,17 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-black text-slate-700 lg:flex">
+              <Globe2
+                size={17}
+                className="text-blue-700"
+              />
+
+              {isArabic
+                ? "عالمي"
+                : "Global"}
+            </div>
+
             <Link
               href="/login"
               className="hidden rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-800 md:inline-flex"
@@ -454,7 +572,9 @@ export default function Home() {
               type="button"
               onClick={() =>
                 setLanguage(
-                  isArabic ? "en" : "ar"
+                  isArabic
+                    ? "en"
+                    : "ar"
                 )
               }
               className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold transition hover:border-blue-700 hover:text-blue-700"
@@ -468,13 +588,18 @@ export default function Home() {
               type="button"
               onClick={() =>
                 setMenuOpen(
-                  (current) => !current
+                  (current) =>
+                    !current
                 )
               }
               className="rounded-xl border border-slate-300 p-2 xl:hidden"
               aria-label="Toggle menu"
             >
-              {menuOpen ? <X /> : <Menu />}
+              {menuOpen ? (
+                <X />
+              ) : (
+                <Menu />
+              )}
             </button>
           </div>
         </div>
@@ -482,18 +607,30 @@ export default function Home() {
         {menuOpen && (
           <div className="border-t border-slate-200 bg-white px-5 py-5 xl:hidden">
             <div className="mx-auto flex max-w-7xl flex-col gap-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() =>
-                    setMenuOpen(false)
-                  }
-                  className="font-bold text-slate-700"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 font-black text-blue-700">
+                <Globe2 size={18} />
+
+                {isArabic
+                  ? "السوق العالمي"
+                  : "Global Marketplace"}
+              </div>
+
+              {navItems.map(
+                (item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() =>
+                      setMenuOpen(
+                        false
+                      )
+                    }
+                    className="font-bold text-slate-700"
+                  >
+                    {item.label}
+                  </Link>
+                )
+              )}
 
               <Link
                 href="/login"
@@ -509,16 +646,19 @@ export default function Home() {
         )}
       </header>
 
+      {/* HERO */}
+
       <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800">
         <div className="absolute inset-0 opacity-20">
           <div className="absolute -left-20 top-20 h-72 w-72 rounded-full bg-teal-400 blur-3xl" />
+
           <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-blue-400 blur-3xl" />
         </div>
 
         <div className="relative mx-auto grid min-h-[700px] max-w-7xl items-center gap-12 px-5 py-20 lg:grid-cols-2">
           <div>
-            <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-blue-100">
-              <Activity size={17} />
+            <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-blue-100">
+              <Globe2 size={17} />
               {t.heroBadge}
             </span>
 
@@ -530,12 +670,22 @@ export default function Home() {
               {t.heroDescription}
             </p>
 
+            {/* GLOBAL SEARCH */}
+
             <div className="mt-8 max-w-2xl rounded-3xl border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur">
-              <p className="mb-3 font-black text-white">
-                {isArabic
-                  ? "ابحث عن أي جهاز أو مستلزم طبي"
-                  : "Search for any medical product"}
-              </p>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="font-black text-white">
+                  {isArabic
+                    ? "ابحث عالميًا عن جهاز أو مستلزم أو قطعة غيار"
+                    : "Search globally for equipment, supplies or spare parts"}
+                </p>
+
+                <span className="inline-flex items-center gap-1 rounded-full bg-teal-400/15 px-3 py-1 text-xs font-black text-teal-200">
+                  <Globe2 size={13} />
+
+                  GLOBAL
+                </span>
+              </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="relative flex-1">
@@ -550,23 +700,31 @@ export default function Home() {
 
                   <input
                     type="text"
-                    value={productSearch}
-                    onChange={(event) =>
+                    value={
+                      productSearch
+                    }
+                    onChange={(
+                      event
+                    ) =>
                       setProductSearch(
-                        event.target.value
+                        event.target
+                          .value
                       )
                     }
-                    onKeyDown={(event) => {
+                    onKeyDown={(
+                      event
+                    ) => {
                       if (
-                        event.key === "Enter"
+                        event.key ===
+                        "Enter"
                       ) {
                         handleProductSearch();
                       }
                     }}
                     placeholder={
                       isArabic
-                        ? "مثال: CTG، EDAN، Shockwave، سرير طبي..."
-                        : "Example: CTG, EDAN, Shockwave, medical bed..."
+                        ? "مثال: EDAN F6، CTG، Siemens، بطارية جهاز، Part Number..."
+                        : "Example: EDAN F6, CTG, Siemens, battery, part number..."
                     }
                     className={`w-full rounded-2xl border border-white/20 bg-white py-4 text-slate-900 outline-none transition focus:ring-4 focus:ring-teal-300/30 ${
                       isArabic
@@ -578,7 +736,9 @@ export default function Home() {
 
                 <button
                   type="button"
-                  onClick={handleProductSearch}
+                  onClick={
+                    handleProductSearch
+                  }
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-7 py-4 font-black text-white transition hover:bg-teal-400"
                 >
                   <Search size={19} />
@@ -592,10 +752,14 @@ export default function Home() {
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <input
-                    ref={imageInputRef}
+                    ref={
+                      imageInputRef
+                    }
                     type="file"
                     accept="image/*"
-                    onChange={handleImageSearch}
+                    onChange={
+                      handleImageSearch
+                    }
                     className="hidden"
                   />
 
@@ -604,7 +768,9 @@ export default function Home() {
                     onClick={
                       handleImageSearchClick
                     }
-                    disabled={imageSearching}
+                    disabled={
+                      imageSearching
+                    }
                     className="inline-flex items-center gap-2 font-bold text-blue-100 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {imageSearching ? (
@@ -613,7 +779,9 @@ export default function Home() {
                         className="animate-spin"
                       />
                     ) : (
-                      <Camera size={19} />
+                      <Camera
+                        size={19}
+                      />
                     )}
 
                     {imageSearching
@@ -627,15 +795,17 @@ export default function Home() {
 
                   {imageSearchError && (
                     <p className="mt-2 max-w-md text-sm font-semibold text-red-200">
-                      {imageSearchError}
+                      {
+                        imageSearchError
+                      }
                     </p>
                   )}
                 </div>
 
                 <span className="text-sm text-blue-100">
                   {isArabic
-                    ? "لو المنتج غير موجود هنساعدك في توفيره."
-                    : "If it is not listed, Health Nations can help source it."}
+                    ? "لو المنتج غير موجود، نساعدك في البحث عنه وتوفيره عالميًا."
+                    : "If it is not listed, we can help source it globally."}
                 </span>
               </div>
             </div>
@@ -645,7 +815,10 @@ export default function Home() {
                 href="/store"
                 className="inline-flex items-center gap-2 rounded-2xl bg-teal-500 px-6 py-4 font-bold text-white transition hover:bg-teal-400"
               >
-                <ShoppingCart size={20} />
+                <ShoppingCart
+                  size={20}
+                />
+
                 {t.browse}
               </Link>
 
@@ -669,40 +842,44 @@ export default function Home() {
                 href="/supplier/register"
                 className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 font-bold text-white transition hover:bg-emerald-500"
               >
-                <Building2 size={20} />
+                <Building2
+                  size={20}
+                />
 
                 {isArabic
-                  ? "سجّل كمورد"
-                  : "Become a Supplier"}
+                  ? "انضم كمورد عالمي"
+                  : "Join as Global Supplier"}
               </Link>
             </div>
           </div>
 
+          {/* GLOBAL STATS */}
+
           <div className="grid grid-cols-2 gap-4">
             {[
               {
-                value: "10+",
+                value: "🌍",
                 label: isArabic
-                  ? "أقسام طبية"
-                  : "Medical Categories",
+                  ? "سوق عالمي"
+                  : "Global Marketplace",
               },
               {
                 value: "24/7",
                 label: isArabic
-                  ? "دعم العملاء"
-                  : "Customer Support",
+                  ? "وصول للمنصة"
+                  : "Platform Access",
               },
               {
-                value: "2",
+                value: "7+",
                 label: isArabic
-                  ? "أسواق رئيسية"
-                  : "Main Markets",
+                  ? "أقسام رئيسية"
+                  : "Main Categories",
               },
               {
                 value: "AI",
                 label: isArabic
-                  ? "حلول ذكية"
-                  : "Smart Solutions",
+                  ? "بحث وحلول ذكية"
+                  : "Smart Search",
               },
             ].map((stat) => (
               <div
@@ -722,6 +899,47 @@ export default function Home() {
         </div>
       </section>
 
+      {/* GLOBAL MESSAGE */}
+
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-5 py-7">
+          <div className="flex flex-col items-center justify-between gap-5 md:flex-row">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                <Globe2 size={24} />
+              </div>
+
+              <div>
+                <p className="font-black">
+                  {isArabic
+                    ? "اكتشف الموردين من جميع أنحاء العالم"
+                    : "Discover suppliers from around the world"}
+                </p>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  {isArabic
+                    ? "السعودية، مصر، الصين، تركيا، أوروبا، الولايات المتحدة وأي دولة ينضم منها مورد إلى المنصة."
+                    : "Saudi Arabia, Egypt, China, Turkey, Europe, the United States and every market represented by our suppliers."}
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/suppliers"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700"
+            >
+              <Users size={17} />
+
+              {isArabic
+                ? "استكشف الموردين"
+                : "Explore Suppliers"}
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* PLATFORM */}
+
       <section className="mx-auto max-w-7xl px-5 py-24">
         <div className="mx-auto mb-14 max-w-3xl text-center">
           <span className="font-black uppercase tracking-widest text-teal-600">
@@ -738,26 +956,33 @@ export default function Home() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {platformCards.map((card) => (
-            <PlatformServiceCard
-              key={card.href}
-              icon={card.icon}
-              title={
-                isArabic
-                  ? card.titleAr
-                  : card.titleEn
-              }
-              description={
-                isArabic
-                  ? card.descriptionAr
-                  : card.descriptionEn
-              }
-              href={card.href}
-              action={t.view}
-            />
-          ))}
+          {platformCards.map(
+            (card) => (
+              <PlatformServiceCard
+                key={`${card.href}-${card.titleEn}`}
+                icon={card.icon}
+                title={
+                  isArabic
+                    ? card.titleAr
+                    : card.titleEn
+                }
+                description={
+                  isArabic
+                    ? card.descriptionAr
+                    : card.descriptionEn
+                }
+                href={card.href}
+                action={t.view}
+                isArabic={
+                  isArabic
+                }
+              />
+            )
+          )}
         </div>
       </section>
+
+      {/* CATEGORIES */}
 
       <section className="bg-white py-24">
         <div className="mx-auto max-w-7xl px-5">
@@ -776,49 +1001,153 @@ export default function Home() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {categories.map((category) => (
-              <article
-                key={category.en}
-                className="rounded-3xl border border-slate-200 bg-slate-50 p-7 transition hover:-translate-y-1 hover:shadow-xl"
-              >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
-                  <Stethoscope size={25} />
-                </div>
-
-                <h3 className="text-xl font-black">
-                  {isArabic
-                    ? category.ar
-                    : category.en}
-                </h3>
-
-                <p className="mt-4 leading-7 text-slate-600">
-                  {isArabic
-                    ? category.itemsAr
-                    : category.itemsEn}
-                </p>
-
-                <Link
-                  href="/store"
-                  className="mt-6 inline-flex items-center gap-2 font-black text-blue-700"
+            {categories.map(
+              (category) => (
+                <article
+                  key={
+                    category.en
+                  }
+                  className="rounded-3xl border border-slate-200 bg-slate-50 p-7 transition hover:-translate-y-1 hover:shadow-xl"
                 >
-                  {isArabic
-                    ? "عرض المنتجات"
-                    : "View Products"}
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+                    {category.icon}
+                  </div>
 
-                  <ArrowRight
-                    size={18}
-                    className={
-                      isArabic
-                        ? "rotate-180"
-                        : ""
-                    }
-                  />
-                </Link>
-              </article>
-            ))}
+                  <h3 className="text-xl font-black">
+                    {isArabic
+                      ? category.ar
+                      : category.en}
+                  </h3>
+
+                  <p className="mt-4 leading-7 text-slate-600">
+                    {isArabic
+                      ? category.itemsAr
+                      : category.itemsEn}
+                  </p>
+
+                  <Link
+                    href={`/store?search=${encodeURIComponent(
+                      category.search
+                    )}`}
+                    className="mt-6 inline-flex items-center gap-2 font-black text-blue-700"
+                  >
+                    {isArabic
+                      ? "عرض المنتجات"
+                      : "View Products"}
+
+                    <ArrowRight
+                      size={18}
+                      className={
+                        isArabic
+                          ? "rotate-180"
+                          : ""
+                      }
+                    />
+                  </Link>
+                </article>
+              )
+            )}
           </div>
         </div>
       </section>
+
+      {/* SPARE PARTS */}
+
+      <section className="bg-slate-100 py-20">
+        <div className="mx-auto max-w-7xl px-5">
+          <div className="overflow-hidden rounded-[2rem] bg-white shadow-sm">
+            <div className="grid lg:grid-cols-2">
+              <div className="p-8 md:p-12">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <Wrench size={27} />
+                </div>
+
+                <p className="mt-7 text-sm font-black uppercase tracking-widest text-amber-700">
+                  MEDICAL SPARE PARTS
+                </p>
+
+                <h2 className="mt-3 text-3xl font-black md:text-4xl">
+                  {isArabic
+                    ? "ابحث عن قطع غيار الأجهزة الطبية عالميًا"
+                    : "Find Medical Equipment Spare Parts Globally"}
+                </h2>
+
+                <p className="mt-5 max-w-xl leading-8 text-slate-600">
+                  {isArabic
+                    ? "ابحث باسم الجهاز أو الشركة المصنعة أو الموديل أو رقم القطعة، واستكشف قطع الغيار المتاحة من الموردين."
+                    : "Search by device, manufacturer, model or part number and explore available spare parts from suppliers."}
+                </p>
+
+                <div className="mt-7 flex flex-wrap gap-3">
+                  {[
+                    isArabic
+                      ? "بوردات"
+                      : "Boards",
+                    isArabic
+                      ? "حساسات"
+                      : "Sensors",
+                    isArabic
+                      ? "بطاريات"
+                      : "Batteries",
+                    isArabic
+                      ? "كابلات"
+                      : "Cables",
+                    isArabic
+                      ? "مجسات"
+                      : "Probes",
+                    isArabic
+                      ? "مزودات طاقة"
+                      : "Power Supplies",
+                  ].map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+
+                <Link
+                  href="/store?search=Medical%20Equipment%20Spare%20Parts"
+                  className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-6 py-4 font-black text-slate-950 transition hover:bg-amber-400"
+                >
+                  <Settings
+                    size={19}
+                  />
+
+                  {isArabic
+                    ? "استكشف قطع الغيار"
+                    : "Explore Spare Parts"}
+                </Link>
+              </div>
+
+              <div className="flex min-h-[350px] items-center justify-center bg-gradient-to-br from-slate-950 to-blue-900 p-10 text-white">
+                <div className="max-w-sm text-center">
+                  <Globe2
+                    size={70}
+                    className="mx-auto text-teal-300"
+                  />
+
+                  <h3 className="mt-6 text-3xl font-black">
+                    {isArabic
+                      ? "موردون عالميون"
+                      : "Global Suppliers"}
+                  </h3>
+
+                  <p className="mt-4 leading-7 text-blue-100">
+                    {isArabic
+                      ? "اعثر على المنتجات وقطع الغيار من الموردين المسجلين من مختلف الدول."
+                      : "Find products and spare parts from registered suppliers across different countries."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* BUSINESS SOLUTIONS */}
 
       <section className="bg-slate-950 py-24 text-white">
         <div className="mx-auto max-w-7xl px-5">
@@ -838,29 +1167,69 @@ export default function Home() {
             <ServiceCard
               icon={<Building2 />}
               title={t.rental}
-              description={t.rentalText}
+              description={
+                t.rentalText
+              }
+              href="/store?type=rental"
+              action={
+                t.openService
+              }
+              isArabic={
+                isArabic
+              }
             />
 
             <ServiceCard
-              icon={<WalletCards />}
+              icon={
+                <WalletCards />
+              }
               title={t.finance}
-              description={t.financeText}
+              description={
+                t.financeText
+              }
+              href="/import-request"
+              action={
+                t.openService
+              }
+              isArabic={
+                isArabic
+              }
             />
 
             <ServiceCard
               icon={<FileText />}
               title={t.catalogs}
-              description={t.catalogsText}
+              description={
+                t.catalogsText
+              }
+              href="/catalogs"
+              action={
+                t.openService
+              }
+              isArabic={
+                isArabic
+              }
             />
 
             <ServiceCard
               icon={<Bot />}
               title={t.aiService}
-              description={t.aiText}
+              description={
+                t.aiText
+              }
+              href="/ai-consultant"
+              action={
+                t.openService
+              }
+              isArabic={
+                isArabic
+              }
             />
           </div>
         </div>
       </section>
+
+      {/* CONTACT */}
 
       <section className="mx-auto max-w-7xl px-5 py-24">
         <div className="overflow-hidden rounded-[2rem] bg-gradient-to-r from-blue-800 to-teal-600 p-8 text-white md:p-14">
@@ -874,7 +1243,11 @@ export default function Home() {
                 {t.contactText}
               </p>
 
-              <p className="mt-4 font-medium text-blue-100">
+              <p className="mt-4 flex items-center gap-2 font-medium text-blue-100">
+                <Globe2
+                  size={18}
+                />
+
                 {t.location}
               </p>
             </div>
@@ -887,14 +1260,19 @@ export default function Home() {
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-7 py-4 font-bold text-blue-800"
               >
                 <Phone size={20} />
-                {t.whatsapp}: +966 56 869 7530
+
+                {t.whatsapp}:
+                +966 56 869 7530
               </a>
 
               <Link
                 href="/store"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/40 px-7 py-4 font-bold"
               >
-                <PackageSearch size={20} />
+                <PackageSearch
+                  size={20}
+                />
+
                 {t.browse}
               </Link>
             </div>
@@ -902,16 +1280,21 @@ export default function Home() {
         </div>
       </section>
 
+      {/* FOOTER */}
+
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
           <span>
-            ©️ 2026 {t.company}.{" "}
+            © 2026 {t.company}.{" "}
             {isArabic
               ? "جميع الحقوق محفوظة."
               : "All rights reserved."}
           </span>
 
-          <span>{t.location}</span>
+          <span className="inline-flex items-center gap-2">
+            <Globe2 size={15} />
+            {t.location}
+          </span>
         </div>
       </footer>
     </main>
@@ -924,12 +1307,14 @@ function PlatformServiceCard({
   description,
   href,
   action,
+  isArabic,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   href: string;
   action: string;
+  isArabic: boolean;
 }) {
   return (
     <article className="group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
@@ -950,7 +1335,15 @@ function PlatformServiceCard({
         className="mt-6 inline-flex items-center gap-2 font-black text-blue-700"
       >
         {action}
-        <ArrowRight size={18} />
+
+        <ArrowRight
+          size={18}
+          className={
+            isArabic
+              ? "rotate-180"
+              : ""
+          }
+        />
       </Link>
     </article>
   );
@@ -960,14 +1353,23 @@ function ServiceCard({
   icon,
   title,
   description,
+  href,
+  action,
+  isArabic,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
+  href: string;
+  action: string;
+  isArabic: boolean;
 }) {
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/5 p-8 transition hover:bg-white/10">
-      <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500 text-white">
+    <Link
+      href={href}
+      className="group block rounded-3xl border border-white/10 bg-white/5 p-8 transition hover:-translate-y-1 hover:border-teal-400/30 hover:bg-white/10 hover:shadow-xl"
+    >
+      <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500 text-white transition group-hover:scale-105">
         {icon}
       </div>
 
@@ -978,6 +1380,19 @@ function ServiceCard({
       <p className="mt-4 leading-8 text-slate-300">
         {description}
       </p>
-    </article>
+
+      <div className="mt-6 inline-flex items-center gap-2 font-bold text-teal-300 transition group-hover:text-teal-200">
+        {action}
+
+        <ArrowRight
+          size={18}
+          className={
+            isArabic
+              ? "rotate-180"
+              : ""
+          }
+        />
+      </div>
+    </Link>
   );
 }
