@@ -3,16 +3,32 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 type Product = {
-  id: string;
+  id: number;
   name_en: string | null;
   name_ar: string | null;
+  description_en: string | null;
+  description_ar: string | null;
   category: string | null;
+  brand: string | null;
+  model: string | null;
+  sale_price: number | null;
+  currency: string | null;
   stock: number | null;
+  product_kind: string | null;
+  part_number: string | null;
+  compatible_device: string | null;
+  manufacturer: string | null;
+  part_condition: string | null;
+  available_for_sale: boolean | null;
+  available_for_rental: boolean | null;
+  monthly_rental_price: number | null;
+  status: string | null;
 };
 
 type OpenAIErrorShape = {
   message?: unknown;
   code?: unknown;
+  status?: unknown;
   error?: {
     message?: unknown;
     code?: unknown;
@@ -46,6 +62,10 @@ function getOpenAIErrorStatus(error: unknown) {
 
   const openaiError = error as OpenAIErrorShape;
 
+  if (typeof openaiError.status === "number") {
+    return openaiError.status;
+  }
+
   const directCode =
     typeof openaiError.code === "string"
       ? openaiError.code
@@ -68,12 +88,9 @@ function getOpenAIErrorStatus(error: unknown) {
 
 export async function POST(req: Request) {
   try {
-    const openaiApiKey =
-      process.env.OPENAI_API_KEY;
-
+    const openaiApiKey = process.env.OPENAI_API_KEY;
     const supabaseUrl =
       process.env.NEXT_PUBLIC_SUPABASE_URL;
-
     const supabaseAnonKey =
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -81,7 +98,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "مفتاح OpenAI غير موجود داخل ملف .env.local.",
+            "مفتاح OpenAI غير موجود في متغيرات البيئة.",
         },
         { status: 500 }
       );
@@ -103,12 +120,12 @@ export async function POST(req: Request) {
       typeof body === "object" &&
       body !== null &&
       "message" in body &&
-      typeof (body as { message?: unknown })
-        .message === "string"
-        ? (body as { message: string }).message
-        : null;
+      typeof (body as { message?: unknown }).message ===
+        "string"
+        ? (body as { message: string }).message.trim()
+        : "";
 
-    if (!message || message.trim().length === 0) {
+    if (!message) {
       return NextResponse.json(
         { error: "الرسالة مطلوبة." },
         { status: 400 }
@@ -124,11 +141,31 @@ export async function POST(req: Request) {
       data: products,
       error: productsError,
     } = await supabase
-      .from("products")
-      .select(
-        "id, name_en, name_ar, category, stock"
-      )
-      .limit(100);
+      .from("supplier_products")
+      .select(`
+        id,
+        name_en,
+        name_ar,
+        description_en,
+        description_ar,
+        category,
+        brand,
+        model,
+        sale_price,
+        currency,
+        stock,
+        product_kind,
+        part_number,
+        compatible_device,
+        manufacturer,
+        part_condition,
+        available_for_sale,
+        available_for_rental,
+        monthly_rental_price,
+        status
+      `)
+      .eq("status", "approved")
+      .limit(200);
 
     if (productsError) {
       console.error("SUPABASE ERROR:", {
@@ -148,37 +185,82 @@ export async function POST(req: Request) {
       );
     }
 
-    const availableProducts = (
-      (products ?? []) as Product[]
-    ).filter(
-      (product) =>
-        Number(product.stock ?? 0) > 0
-    );
+    const approvedProducts =
+      (products ?? []) as Product[];
 
-    if (availableProducts.length === 0) {
+    if (approvedProducts.length === 0) {
       return NextResponse.json({
         reply:
-          "لا توجد منتجات متاحة حاليًا داخل المنصة. يمكنك إرسال طلب عرض سعر وسيتواصل معك فريق شركة صحة الأمم الطبية.",
+          "لا توجد منتجات معتمدة متاحة حاليًا داخل المنصة. يمكنك التواصل مع فريق Health Nations لطلب المنتج أو عرض سعر.",
       });
     }
 
-    const productsText = availableProducts
-      .map((product, index) =>
-        [
+    const productsText = approvedProducts
+      .map((product, index) => {
+        const price =
+          product.sale_price !== null
+            ? `${product.sale_price} ${
+                product.currency || ""
+              }`.trim()
+            : "غير معلن";
+
+        const rentalPrice =
+          product.monthly_rental_price !== null
+            ? `${product.monthly_rental_price} ${
+                product.currency || ""
+              } / month`.trim()
+            : "غير معلن";
+
+        return [
           `${index + 1}.`,
-          `رقم المنتج: ${product.id}`,
-          `الاسم العربي: ${
+          `Product ID: ${product.id}`,
+          `Arabic Name: ${
             product.name_ar || "غير متوفر"
           }`,
-          `الاسم الإنجليزي: ${
+          `English Name: ${
             product.name_en || "غير متوفر"
           }`,
-          `التصنيف: ${
+          `Category: ${
             product.category || "غير محدد"
           }`,
-          `المخزون: ${product.stock ?? 0}`,
-        ].join("\n")
-      )
+          `Product Type: ${
+            product.product_kind || "equipment"
+          }`,
+          `Brand: ${product.brand || "غير محدد"}`,
+          `Model: ${product.model || "غير محدد"}`,
+          `Manufacturer: ${
+            product.manufacturer || "غير محدد"
+          }`,
+          `Part Number: ${
+            product.part_number || "غير متوفر"
+          }`,
+          `Compatible Device: ${
+            product.compatible_device || "غير محدد"
+          }`,
+          `Condition: ${
+            product.part_condition || "غير محدد"
+          }`,
+          `Stock: ${
+            product.stock !== null
+              ? product.stock
+              : "غير محدد"
+          }`,
+          `Available For Sale: ${
+            product.available_for_sale ? "Yes" : "No"
+          }`,
+          `Sale Price: ${price}`,
+          `Available For Rental: ${
+            product.available_for_rental ? "Yes" : "No"
+          }`,
+          `Monthly Rental Price: ${rentalPrice}`,
+          `Arabic Description: ${
+            product.description_ar || "غير متوفر"
+          }`,
+          `English Description: ${
+            product.description_en || "غير متوفر"
+          }`,
+        ].join("\n");
+      })
       .join("\n\n");
 
     const openai = new OpenAI({
@@ -186,57 +268,72 @@ export async function POST(req: Request) {
     });
 
     try {
-      const response =
-        await openai.responses.create({
-          model: "gpt-5-mini",
+      const response = await openai.responses.create({
+        model: "gpt-5-mini",
 
-          instructions: `
-أنت مساعد المبيعات الذكي لمنصة Health Nations Medical.
+        instructions: `
+You are the intelligent medical marketplace consultant for Health Nations Medical.
 
-قواعد إلزامية:
-1. لا تقترح أي منتج غير موجود في قائمة منتجات المنصة.
-2. لا تخترع أسماء منتجات أو أسعارًا أو مواصفات.
-3. اختر فقط المنتجات المناسبة لطلب العميل من القائمة.
-4. إذا لم تجد منتجًا مناسبًا، قل: "لا يوجد منتج مطابق لطلبك حاليًا داخل المنصة."
-5. لا تقل إن المنتج متوفر إلا إذا كان موجودًا في القائمة ومخزونه أكبر من صفر.
-6. اذكر اسم المنتج كما هو مسجل في المنصة.
-7. لا تذكر سعرًا إلا إذا كان موجودًا صراحة في بيانات المنتج.
-8. قدّم معلومات صحية عامة فقط، ولا تشخّص الأمراض.
-9. لا تصف أدوية تحتاج إلى وصفة طبية.
-10. عند وجود أعراض خطيرة، وجّه المستخدم إلى الطبيب أو الطوارئ.
-11. أجب باللغة التي يستخدمها العميل.
-12. عند وجود منتج مناسب، اختم باقتراح إرسال طلب عرض سعر.
-          `,
+Your job is to help customers find medical equipment, consumables, spare parts, rehabilitation products, and other medical products from the Health Nations marketplace.
 
-          input: `
-طلب العميل:
-${message.trim()}
+STRICT RULES:
 
-هذه هي المنتجات الوحيدة المسموح لك باقتراحها:
+1. Only recommend products included in the marketplace product list provided to you.
+2. Never invent a product, price, brand, model, stock quantity, specification, part number, manufacturer, or availability.
+3. Only products with approved marketplace status are provided to you.
+4. If the customer provides an exact part number, prioritize exact part-number matches.
+5. For spare parts, use compatibility, manufacturer, model, and part number when available.
+6. Do not say a product is in stock unless the supplied stock data confirms it.
+7. If stock is zero, do not describe the item as currently in stock.
+8. If stock is unknown, clearly say availability should be confirmed.
+9. Only mention a price when a price is explicitly supplied.
+10. If the product has no published price, say the customer can request a quotation.
+11. If rental is available, you may mention the rental option.
+12. Never expose supplier phone numbers, supplier email addresses, or direct supplier contact information.
+13. Customer inquiries must remain through Health Nations.
+14. If no matching marketplace product exists, clearly say that there is currently no matching product in the marketplace and suggest requesting sourcing assistance from Health Nations.
+15. Provide general medical information only. Do not diagnose medical conditions.
+16. Do not prescribe prescription-only medicines.
+17. For potentially serious or emergency symptoms, advise the customer to contact an appropriate healthcare professional or emergency service.
+18. Answer in the same language used by the customer.
+19. Keep answers clear and practical.
+20. When one or more suitable products exist, mention their exact marketplace names and relevant available details.
+21. When appropriate, finish by suggesting that the customer request a quotation through Health Nations.
+`,
+
+        input: `
+CUSTOMER REQUEST:
+
+${message}
+
+APPROVED HEALTH NATIONS MARKETPLACE PRODUCTS:
+
 ${productsText}
-          `,
-        });
+`,
+      });
+
+      const reply = response.output_text?.trim();
 
       return NextResponse.json({
         reply:
-          response.output_text?.trim() ||
+          reply ||
           "لم أجد منتجًا مناسبًا داخل المنصة حاليًا.",
       });
     } catch (openaiError: unknown) {
       console.error(
-        "AI CONSULTANT ERROR:",
+        "OPENAI ERROR:",
         openaiError
       );
 
-      const openaiMessage =
-        getOpenAIErrorMessage(openaiError);
-
-      const status =
-        getOpenAIErrorStatus(openaiError);
-
       return NextResponse.json(
-        { error: openaiMessage },
-        { status }
+        {
+          error:
+            getOpenAIErrorMessage(openaiError),
+        },
+        {
+          status:
+            getOpenAIErrorStatus(openaiError),
+        }
       );
     }
   } catch (error: unknown) {
