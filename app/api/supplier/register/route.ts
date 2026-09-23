@@ -20,6 +20,27 @@ type RegisterBody = {
   address?: string;
 };
 
+function cleanEnvironmentValue(
+  value: string | undefined
+) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/^["']|["']$/g, "");
+}
+
+function cleanEnvironmentKey(
+  value: string | undefined
+) {
+  return cleanEnvironmentValue(value).replace(
+    /\s+/g,
+    ""
+  );
+}
+
 function normalizeSlug(value: string) {
   return value
     .toLowerCase()
@@ -30,15 +51,49 @@ function normalizeSlug(value: string) {
     .replace(/^-|-$/g, "");
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error
+  ) {
+    const message = (
+      error as {
+        message?: unknown;
+      }
+    ).message;
+
+    if (typeof message === "string") {
+      return message;
+    }
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return "Unknown error";
+}
+
 export async function POST(request: Request) {
   const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
+    cleanEnvironmentValue(
+      process.env.NEXT_PUBLIC_SUPABASE_URL
+    );
 
   const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    cleanEnvironmentKey(
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
   const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
+    cleanEnvironmentKey(
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
 
   if (
     !supabaseUrl ||
@@ -46,7 +101,13 @@ export async function POST(request: Request) {
     !serviceRoleKey
   ) {
     console.error(
-      "Supplier registration API: missing Supabase environment variables"
+      "Supplier registration API configuration error:",
+      {
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasAnonKey: Boolean(supabaseAnonKey),
+        hasServiceRoleKey:
+          Boolean(serviceRoleKey),
+      }
     );
 
     return NextResponse.json(
@@ -60,11 +121,6 @@ export async function POST(request: Request) {
     );
   }
 
-  /*
-   * Public client:
-   * used only for signUp so Supabase
-   * can handle email confirmation normally.
-   */
   const publicSupabase = createClient(
     supabaseUrl,
     supabaseAnonKey,
@@ -77,12 +133,6 @@ export async function POST(request: Request) {
     }
   );
 
-  /*
-   * Admin client:
-   * used only on the server.
-   * Never expose SUPABASE_SERVICE_ROLE_KEY
-   * to browser/client code.
-   */
   const adminSupabase = createClient(
     supabaseUrl,
     serviceRoleKey,
@@ -95,17 +145,23 @@ export async function POST(request: Request) {
     }
   );
 
-  let createdUserId: string | null = null;
+  let createdUserId: string | null =
+    null;
 
   try {
     const body =
       (await request.json()) as RegisterBody;
 
     const email =
-      body.email?.trim().toLowerCase() ?? "";
+      body.email
+        ?.trim()
+        .toLowerCase() ?? "";
 
     const password =
       body.password ?? "";
+
+    const accountType =
+      body.accountType?.trim() ?? "";
 
     const companyNameEn =
       body.companyNameEn?.trim() ?? "";
@@ -151,12 +207,10 @@ export async function POST(request: Request) {
     const address =
       body.address?.trim() ?? "";
 
-    const accountType =
-      body.accountType?.trim() ?? "";
-
     if (
       !email ||
       !password ||
+      !accountType ||
       !companyNameEn ||
       !contactName ||
       !phone ||
@@ -167,8 +221,7 @@ export async function POST(request: Request) {
       !supplierType ||
       !commercialRegistration ||
       !taxNumber ||
-      !address ||
-      !accountType
+      !address
     ) {
       return NextResponse.json(
         {
@@ -208,14 +261,16 @@ export async function POST(request: Request) {
         {
           success: false,
           code: "INVALID_ACCOUNT_TYPE",
-          error: "Invalid account type.",
+          error:
+            "Invalid account type.",
         },
         { status: 400 }
       );
     }
 
     /*
-     * 1. Create Supabase Auth account.
+     * STEP 1
+     * Create Supabase Auth user.
      */
     const {
       data: signUpData,
@@ -223,30 +278,60 @@ export async function POST(request: Request) {
     } = await publicSupabase.auth.signUp({
       email,
       password,
+
       options: {
         data: {
           role: "vendor",
-          account_type: accountType,
-          account_status: "pending",
-          company_name_en: companyNameEn,
+
+          account_type:
+            accountType,
+
+          account_status:
+            "pending",
+
+          company_name_en:
+            companyNameEn,
+
           company_name_ar:
             companyNameAr || null,
-          contact_name: contactName,
+
+          contact_name:
+            contactName,
+
           phone,
-          country_code: countryCode,
-          country_name: countryName,
-          country: countryName,
+
+          country_code:
+            countryCode,
+
+          country_name:
+            countryName,
+
+          country:
+            countryName,
+
           city,
+
           currency,
-          supplier_type: supplierType,
+
+          supplier_type:
+            supplierType,
+
           commercial_registration:
             commercialRegistration,
-          tax_number: taxNumber,
+
+          tax_number:
+            taxNumber,
+
           license_number:
             licenseNumber || null,
+
           address,
-          is_verified: false,
-          can_publish_products: false,
+
+          is_verified:
+            false,
+
+          can_publish_products:
+            false,
         },
       },
     });
@@ -255,9 +340,12 @@ export async function POST(request: Request) {
       console.error(
         "Supplier Auth registration error:",
         {
-          message: signUpError.message,
-          status: signUpError.status,
-          name: signUpError.name,
+          message:
+            signUpError.message,
+          status:
+            signUpError.status,
+          name:
+            signUpError.name,
         }
       );
 
@@ -275,7 +363,8 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            code: "ALREADY_REGISTERED",
+            code:
+              "ALREADY_REGISTERED",
             error:
               "This email address is already registered.",
           },
@@ -307,7 +396,8 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            code: "INVALID_PASSWORD",
+            code:
+              "INVALID_PASSWORD",
             error:
               "The password is not accepted.",
           },
@@ -337,8 +427,10 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          code: "SUPABASE_AUTH_ERROR",
-          error: signUpError.message,
+          code:
+            "SUPABASE_AUTH_ERROR",
+          error:
+            signUpError.message,
         },
         {
           status:
@@ -355,7 +447,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          code: "USER_NOT_CREATED",
+          code:
+            "USER_NOT_CREATED",
           error:
             "The account could not be created.",
         },
@@ -367,14 +460,12 @@ export async function POST(request: Request) {
       signUpData.user.id;
 
     /*
-     * Unique public supplier store slug.
-     *
-     * Example:
-     * company-name-a1b2c3d4
+     * Create unique store slug.
      */
     const slugBase =
-      normalizeSlug(companyNameEn) ||
-      "supplier";
+      normalizeSlug(
+        companyNameEn
+      ) || "supplier";
 
     const supplierSlug =
       `${slugBase}-${createdUserId.slice(
@@ -383,33 +474,68 @@ export async function POST(request: Request) {
       )}`;
 
     /*
-     * 2. Create supplier_profiles row.
+     * STEP 2
+     * supplier_profiles
      */
     const {
-      error: supplierProfileError,
+      error:
+        supplierProfileError,
     } = await adminSupabase
-      .from("supplier_profiles")
+      .from(
+        "supplier_profiles"
+      )
       .insert({
-        user_id: createdUserId,
-        company_name_en: companyNameEn,
+        user_id:
+          createdUserId,
+
+        company_name_en:
+          companyNameEn,
+
         company_name_ar:
           companyNameAr || null,
-        contact_name: contactName,
+
+        contact_name:
+          contactName,
+
         email,
+
         phone,
-        country: countryCode,
+
+        country:
+          countryCode,
+
         city,
+
         address,
-        supplier_type: supplierType,
-        slug: supplierSlug,
-        status: "pending",
-        verified: false,
+
+        supplier_type:
+          supplierType,
+
+        slug:
+          supplierSlug,
+
+        status:
+          "pending",
+
+        verified:
+          false,
       });
 
-    if (supplierProfileError) {
+    if (
+      supplierProfileError
+    ) {
       console.error(
         "supplier_profiles insert error:",
-        supplierProfileError
+        {
+          message:
+            supplierProfileError.message,
+          code:
+            supplierProfileError.code,
+          details:
+            supplierProfileError.details,
+          hint:
+            supplierProfileError.hint,
+        }
       );
 
       throw new Error(
@@ -418,53 +544,91 @@ export async function POST(request: Request) {
     }
 
     /*
-     * 3. Create vendor_profiles row.
+     * STEP 3
+     * vendor_profiles
      */
     const {
-      error: vendorProfileError,
+      error:
+        vendorProfileError,
     } = await adminSupabase
-      .from("vendor_profiles")
+      .from(
+        "vendor_profiles"
+      )
       .insert({
-        id: createdUserId,
+        id:
+          createdUserId,
 
-        account_type: accountType,
-        account_status: "pending",
+        account_type:
+          accountType,
 
-        company_name_en: companyNameEn,
+        account_status:
+          "pending",
+
+        company_name_en:
+          companyNameEn,
+
         company_name_ar:
           companyNameAr || null,
 
-        contact_name: contactName,
+        contact_name:
+          contactName,
+
         email,
+
         phone,
 
-        country_code: countryCode,
-        country_name: countryName,
+        country_code:
+          countryCode,
+
+        country_name:
+          countryName,
+
         city,
+
         address,
+
         currency,
 
-        supplier_type: supplierType,
+        supplier_type:
+          supplierType,
 
         commercial_registration:
           commercialRegistration,
 
-        tax_number: taxNumber,
+        tax_number:
+          taxNumber,
 
         license_number:
           licenseNumber || null,
 
-        is_verified: false,
-        can_publish_products: false,
+        is_verified:
+          false,
 
-        store_slug: supplierSlug,
-        store_is_active: false,
+        can_publish_products:
+          false,
+
+        store_slug:
+          supplierSlug,
+
+        store_is_active:
+          false,
       });
 
-    if (vendorProfileError) {
+    if (
+      vendorProfileError
+    ) {
       console.error(
         "vendor_profiles insert error:",
-        vendorProfileError
+        {
+          message:
+            vendorProfileError.message,
+          code:
+            vendorProfileError.code,
+          details:
+            vendorProfileError.details,
+          hint:
+            vendorProfileError.hint,
+        }
       );
 
       throw new Error(
@@ -472,53 +636,52 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * Registration is considered successful
-     * only after all three records exist:
-     *
-     * auth.users
-     * supplier_profiles
-     * vendor_profiles
-     */
     return NextResponse.json(
       {
         success: true,
 
         user: {
-          id: createdUserId,
+          id:
+            createdUserId,
+
           email:
             signUpData.user.email,
         },
 
         supplier: {
-          slug: supplierSlug,
-          status: "pending",
+          slug:
+            supplierSlug,
+
+          status:
+            "pending",
         },
 
         requiresEmailConfirmation:
           !signUpData.session,
 
-        accountStatus: "pending",
+        accountStatus:
+          "pending",
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage =
+      getErrorMessage(error);
+
     console.error(
       "Unexpected supplier registration API error:",
-      error
+      errorMessage
     );
 
     /*
-     * Cleanup incomplete registration.
-     *
-     * If Auth was created but one of the
-     * profile inserts failed, remove everything
-     * so the same email can register again.
+     * Remove incomplete registration.
      */
     if (createdUserId) {
       try {
         await adminSupabase
-          .from("vendor_profiles")
+          .from(
+            "vendor_profiles"
+          )
           .delete()
           .eq(
             "id",
@@ -526,36 +689,48 @@ export async function POST(request: Request) {
           );
 
         await adminSupabase
-          .from("supplier_profiles")
+          .from(
+            "supplier_profiles"
+          )
           .delete()
           .eq(
             "user_id",
             createdUserId
           );
 
-        await adminSupabase.auth.admin.deleteUser(
-          createdUserId
-        );
-      } catch (cleanupError) {
+        const {
+          error:
+            deleteUserError,
+        } =
+          await adminSupabase.auth.admin.deleteUser(
+            createdUserId
+          );
+
+        if (deleteUserError) {
+          console.error(
+            "Auth cleanup error:",
+            deleteUserError.message
+          );
+        }
+      } catch (
+        cleanupError: unknown
+      ) {
         console.error(
           "Supplier registration cleanup error:",
-          cleanupError
+          getErrorMessage(
+            cleanupError
+          )
         );
       }
     }
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unknown registration error";
-
     return NextResponse.json(
       {
         success: false,
-        code: "PROFILE_CREATION_FAILED",
+        code:
+          "PROFILE_CREATION_FAILED",
         error:
           "The vendor account could not be completed.",
-        details: message,
       },
       { status: 500 }
     );
