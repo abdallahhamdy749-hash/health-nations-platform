@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
-
+import { useCallback, useEffect, useState } from "react";
 import {
   BarChart3,
   Boxes,
@@ -26,32 +21,32 @@ import { supabase } from "@/lib/supabase";
 
 type VendorProfile = {
   id: string;
-  account_type: string;
-  account_status: string;
-  company_name_en: string;
-  company_name_ar: string;
-  contact_name: string;
-  email: string;
-  phone: string;
-  country_code: "SA" | "EG";
-  city: string;
-  currency: "SAR" | "EGP";
+  account_type: string | null;
+  account_status: string | null;
+  company_name_en: string | null;
+  company_name_ar: string | null;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  country_code: string | null;
+  country_name: string | null;
+  city: string | null;
+  currency: string | null;
   store_slug: string | null;
   store_description: string | null;
   logo_url: string | null;
   cover_image_url: string | null;
   whatsapp_number: string | null;
   website_url: string | null;
-  store_is_active: boolean;
-  is_verified: boolean;
-  can_publish_products: boolean;
+  store_is_active: boolean | null;
+  is_verified: boolean | null;
+  can_publish_products: boolean | null;
 };
 
 type ProductSummary = {
   id: number;
   status: string | null;
   stock: number | null;
-  featured: boolean | null;
 };
 
 type DashboardStats = {
@@ -78,15 +73,9 @@ export default function VendorDashboardPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-
-  const [profile, setProfile] =
-    useState<VendorProfile | null>(null);
-
-  const [stats, setStats] =
-    useState<DashboardStats>(initialStats);
-
-  const [errorMessage, setErrorMessage] =
-    useState("");
+  const [profile, setProfile] = useState<VendorProfile | null>(null);
+  const [stats, setStats] = useState<DashboardStats>(initialStats);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const loadVendorDashboard = useCallback(async () => {
     try {
@@ -104,14 +93,10 @@ export default function VendorDashboardPage() {
       }
 
       const [
-        {
-          data: profileData,
-          error: profileError,
-        },
-        {
-          data: productsData,
-          error: productsError,
-        },
+        profileResult,
+        productsResult,
+        ordersResult,
+        quotationsResult,
       ] = await Promise.all([
         supabase
           .from("vendor_profiles")
@@ -121,75 +106,88 @@ export default function VendorDashboardPage() {
 
         supabase
           .from("supplier_products")
-          .select(
-            "id, status, stock, featured"
-          )
+          .select("id, status, stock")
           .eq("supplier_id", user.id),
+
+        supabase
+          .from("marketplace_orders")
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("vendor_id", user.id),
+
+        supabase
+          .from("vendor_quotations")
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("vendor_id", user.id),
       ]);
 
-      if (
-        profileError ||
-        !profileData
-      ) {
+      if (profileResult.error || !profileResult.data) {
+        console.error(
+          "Vendor profile error:",
+          profileResult.error
+        );
+
         throw new Error(
           "تعذر تحميل بيانات المورد. تأكد أن الحساب مسجل كمورد."
         );
       }
 
-      if (productsError) {
+      if (productsResult.error) {
         console.error(
           "Products loading error:",
-          productsError
+          productsResult.error
+        );
+      }
+
+      if (ordersResult.error) {
+        console.error(
+          "Orders loading error:",
+          ordersResult.error
+        );
+      }
+
+      if (quotationsResult.error) {
+        console.error(
+          "Quotations loading error:",
+          quotationsResult.error
         );
       }
 
       const products =
-        (productsData ?? []) as ProductSummary[];
+        (productsResult.data ?? []) as ProductSummary[];
 
-      const activeProducts =
-        products.filter((product) => {
-          const status =
-            product.status?.toLowerCase();
+      const activeProducts = products.filter((product) => {
+        const status = product.status?.toLowerCase();
 
-          return (
-            status === "approved" ||
-            status === "active"
-          );
-        }).length;
+        return status === "approved" || status === "active";
+      }).length;
 
-      const pendingProducts =
-        products.filter((product) => {
-          return (
-            product.status?.toLowerCase() ===
-            "pending"
-          );
-        }).length;
+      const pendingProducts = products.filter((product) => {
+        return product.status?.toLowerCase() === "pending";
+      }).length;
 
-      const outOfStockProducts =
-        products.filter((product) => {
-          return (
-            (product.stock ?? 0) <= 0
-          );
-        }).length;
+      const outOfStockProducts = products.filter((product) => {
+        return (product.stock ?? 0) <= 0;
+      }).length;
 
-      setProfile(
-        profileData as VendorProfile
-      );
+      setProfile(profileResult.data as VendorProfile);
 
       setStats({
         products: products.length,
         activeProducts,
         pendingProducts,
         outOfStockProducts,
-        orders: 0,
-        quotations: 0,
+        orders: ordersResult.count ?? 0,
+        quotations: quotationsResult.count ?? 0,
         messages: 0,
       });
     } catch (error: unknown) {
-      console.error(
-        "Vendor dashboard error:",
-        error
-      );
+      console.error("Vendor dashboard error:", error);
 
       setErrorMessage(
         error instanceof Error
@@ -202,13 +200,7 @@ export default function VendorDashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadVendorDashboard();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
+    void loadVendorDashboard();
   }, [loadVendorDashboard]);
 
   async function handleLogout() {
@@ -251,11 +243,7 @@ export default function VendorDashboardPage() {
 
           <button
             type="button"
-            onClick={() =>
-              router.push(
-                "/supplier/register"
-              )
-            }
+            onClick={() => router.push("/supplier/register")}
             className="mt-6 rounded-2xl bg-blue-700 px-6 py-3 font-bold text-white transition hover:bg-blue-800"
           >
             Register as Vendor
@@ -266,16 +254,31 @@ export default function VendorDashboardPage() {
   }
 
   const isApproved =
-    profile.account_status ===
-    "approved";
+    profile.account_status?.toLowerCase() === "approved";
+
+  const companyName =
+    profile.company_name_en?.trim() ||
+    profile.company_name_ar?.trim() ||
+    "Vendor";
+
+  const country =
+    profile.country_name?.trim() ||
+    profile.country_code?.trim() ||
+    "Not specified";
+
+  const city =
+    profile.city?.trim() ||
+    "Not specified";
+
+  const currency =
+    profile.currency?.trim() ||
+    "Not specified";
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <div className="grid min-h-screen lg:grid-cols-[270px_1fr]">
-
         <aside className="border-r border-slate-200 bg-slate-950 p-6 text-white">
           <div className="flex items-center gap-3">
-
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-teal-400">
               <Store size={24} />
             </div>
@@ -289,123 +292,70 @@ export default function VendorDashboardPage() {
                 Vendor Dashboard
               </span>
             </div>
-
           </div>
 
           <nav className="mt-10 space-y-2">
-
             <SidebarItem
-              icon={
-                <BarChart3 size={19} />
-              }
+              icon={<BarChart3 size={19} />}
               active
-              onClick={() =>
-                router.push(
-                  "/vendor/dashboard"
-                )
-              }
+              onClick={() => router.push("/vendor/dashboard")}
             >
               Dashboard
             </SidebarItem>
 
             <SidebarItem
-              icon={
-                <Store size={19} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/store-settings"
-                )
-              }
+              icon={<Store size={19} />}
+              onClick={() => router.push("/vendor/store-settings")}
             >
               Store Settings
             </SidebarItem>
 
             <SidebarItem
-              icon={
-                <Package size={19} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/products"
-                )
-              }
+              icon={<Package size={19} />}
+              onClick={() => router.push("/vendor/products")}
             >
               Products
             </SidebarItem>
 
             <SidebarItem
-              icon={
-                <Boxes size={19} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/products"
-                )
-              }
+              icon={<Boxes size={19} />}
+              onClick={() => router.push("/vendor/products")}
             >
               Inventory
             </SidebarItem>
 
             <SidebarItem
-              icon={
-                <ShoppingCart size={19} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/orders"
-                )
-              }
+              icon={<ShoppingCart size={19} />}
+              onClick={() => router.push("/vendor/orders")}
             >
               Orders
             </SidebarItem>
 
             <SidebarItem
-              icon={
-                <FileText size={19} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/quotations"
-                )
-              }
+              icon={<FileText size={19} />}
+              onClick={() => router.push("/vendor/quotations")}
             >
               Quotations
             </SidebarItem>
 
             <SidebarItem
-              icon={
-                <MessageSquare size={19} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/messages"
-                )
-              }
+              icon={<MessageSquare size={19} />}
+              onClick={() => router.push("/vendor/messages")}
             >
               Messages
             </SidebarItem>
 
             <SidebarItem
-              icon={
-                <Settings size={19} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/settings"
-                )
-              }
+              icon={<Settings size={19} />}
+              onClick={() => router.push("/vendor/settings")}
             >
               Settings
             </SidebarItem>
-
           </nav>
 
           <button
             type="button"
-            onClick={() =>
-              void handleLogout()
-            }
+            onClick={() => void handleLogout()}
             className="mt-10 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-300 transition hover:bg-slate-800 hover:text-white"
           >
             <LogOut size={19} />
@@ -414,24 +364,24 @@ export default function VendorDashboardPage() {
         </aside>
 
         <section className="p-5 md:p-8">
-
           <header className="flex flex-col gap-5 rounded-3xl bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
-
             <div>
               <p className="text-sm font-bold uppercase tracking-wide text-blue-700">
                 Vendor Portal
               </p>
 
               <h1 className="mt-1 text-3xl font-black">
-                {profile.company_name_en}
+                {companyName}
               </h1>
 
-              <p
-                className="mt-1 text-slate-600"
-                dir="rtl"
-              >
-                {profile.company_name_ar}
-              </p>
+              {profile.company_name_ar && (
+                <p
+                  className="mt-1 text-slate-600"
+                  dir="rtl"
+                >
+                  {profile.company_name_ar}
+                </p>
+              )}
             </div>
 
             <div
@@ -447,199 +397,155 @@ export default function VendorDashboardPage() {
                 ? "Approved | تم اعتماد الحساب"
                 : "Pending Review | قيد المراجعة"}
             </div>
-
           </header>
 
           {!isApproved && (
             <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
-
               <strong className="block text-lg">
                 حسابك ما زال قيد المراجعة
               </strong>
 
               <p className="mt-2 leading-7">
-                يمكنك تجهيز بيانات متجرك، لكن إضافة
-                المنتجات ونشرها لن يكونا متاحين حتى
-                توافق الإدارة على الحساب.
+                يمكنك تجهيز بيانات متجرك، لكن إضافة المنتجات
+                ونشرها لن يكونا متاحين حتى توافق الإدارة على
+                الحساب.
               </p>
-
             </div>
           )}
 
           <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-
             <StatCard
               title="Products"
               value={stats.products.toString()}
               subtitle="إجمالي المنتجات"
-              icon={
-                <Package size={23} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/products"
-                )
-              }
+              icon={<Package size={23} />}
+              onClick={() => router.push("/vendor/products")}
             />
 
             <StatCard
               title="Active Products"
-              value={
-                stats.activeProducts.toString()
-              }
+              value={stats.activeProducts.toString()}
               subtitle="المنتجات النشطة"
-              icon={
-                <CheckCircle2 size={23} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/products"
-                )
-              }
+              icon={<CheckCircle2 size={23} />}
+              onClick={() => router.push("/vendor/products")}
+            />
+
+            <StatCard
+              title="Orders"
+              value={stats.orders.toString()}
+              subtitle="طلبات المورد"
+              icon={<ShoppingCart size={23} />}
+              onClick={() => router.push("/vendor/orders")}
+            />
+
+            <StatCard
+              title="Quotations"
+              value={stats.quotations.toString()}
+              subtitle="طلبات عروض الأسعار"
+              icon={<FileText size={23} />}
+              onClick={() => router.push("/vendor/quotations")}
             />
 
             <StatCard
               title="Pending Products"
-              value={
-                stats.pendingProducts.toString()
-              }
+              value={stats.pendingProducts.toString()}
               subtitle="في انتظار الاعتماد"
-              icon={
-                <FileText size={23} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/products"
-                )
-              }
+              icon={<FileText size={23} />}
+              onClick={() => router.push("/vendor/products")}
             />
 
             <StatCard
               title="Out of Stock"
-              value={
-                stats.outOfStockProducts.toString()
-              }
+              value={stats.outOfStockProducts.toString()}
               subtitle="منتجات نفد مخزونها"
-              icon={
-                <Boxes size={23} />
-              }
-              onClick={() =>
-                router.push(
-                  "/vendor/products"
-                )
-              }
+              icon={<Boxes size={23} />}
+              onClick={() => router.push("/vendor/products")}
             />
 
+            <StatCard
+              title="Messages"
+              value={stats.messages.toString()}
+              subtitle="الرسائل"
+              icon={<MessageSquare size={23} />}
+              onClick={() => router.push("/vendor/messages")}
+            />
           </div>
 
           <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-
             <div className="rounded-3xl bg-white p-6 shadow-sm">
-
               <div className="flex items-center justify-between">
-
                 <div>
                   <h2 className="text-xl font-black">
                     Complete Your Store
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    أكمل بيانات متجرك ليظهر بشكل
-                    احترافي
+                    أكمل بيانات متجرك ليظهر بشكل احترافي
                   </p>
                 </div>
 
                 <Store className="text-blue-700" />
-
               </div>
 
               <div className="mt-6 space-y-4">
-
                 <StoreTask
                   title="Choose your store URL"
                   arabicTitle="اختر رابط المتجر"
-                  completed={Boolean(
-                    profile.store_slug
-                  )}
+                  completed={Boolean(profile.store_slug)}
                 />
 
                 <StoreTask
                   title="Upload company logo"
                   arabicTitle="ارفع شعار المنشأة"
-                  completed={Boolean(
-                    profile.logo_url
-                  )}
+                  completed={Boolean(profile.logo_url)}
                 />
 
                 <StoreTask
                   title="Add store description"
                   arabicTitle="أضف نبذة عن المتجر"
-                  completed={Boolean(
-                    profile.store_description
-                  )}
+                  completed={Boolean(profile.store_description)}
                 />
 
                 <StoreTask
                   title="Add WhatsApp number"
                   arabicTitle="أضف رقم واتساب"
-                  completed={Boolean(
-                    profile.whatsapp_number
-                  )}
+                  completed={Boolean(profile.whatsapp_number)}
                 />
-
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  router.push(
-                    "/vendor/store-settings"
-                  )
-                }
+                onClick={() => router.push("/vendor/store-settings")}
                 className="mt-6 w-full rounded-2xl bg-blue-700 px-5 py-4 font-bold text-white transition hover:bg-blue-800"
               >
                 Complete Store Settings | إعداد المتجر
               </button>
-
             </div>
 
             <div className="rounded-3xl bg-white p-6 shadow-sm">
-
               <h2 className="text-xl font-black">
                 Account Information
               </h2>
 
               <div className="mt-5 space-y-4 text-sm">
-
                 <InfoRow
                   label="Account Type"
-                  value={
-                    profile.account_type
-                  }
+                  value={profile.account_type || "Not specified"}
                 />
 
                 <InfoRow
                   label="Country"
-                  value={
-                    profile.country_code ===
-                    "SA"
-                      ? "Saudi Arabia"
-                      : "Egypt"
-                  }
+                  value={country}
                 />
 
                 <InfoRow
                   label="City"
-                  value={
-                    profile.city
-                  }
+                  value={city}
                 />
 
                 <InfoRow
                   label="Currency"
-                  value={
-                    profile.currency
-                  }
+                  value={currency}
                 />
 
                 <InfoRow
@@ -650,13 +556,9 @@ export default function VendorDashboardPage() {
                       : "Disabled"
                   }
                 />
-
               </div>
-
             </div>
-
           </div>
-
         </section>
       </div>
     </main>
@@ -710,7 +612,6 @@ function StatCard({
       className="w-full rounded-3xl bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="flex items-start justify-between">
-
         <div>
           <p className="text-sm font-bold text-slate-500">
             {title}
@@ -728,7 +629,6 @@ function StatCard({
         <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
           {icon}
         </div>
-
       </div>
     </button>
   );
@@ -745,7 +645,6 @@ function StoreTask({
 }) {
   return (
     <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
-
       <div>
         <strong className="block text-sm">
           {title}
@@ -763,11 +662,8 @@ function StoreTask({
             : "bg-slate-100 text-slate-600"
         }`}
       >
-        {completed
-          ? "Completed"
-          : "Required"}
+        {completed ? "Completed" : "Required"}
       </span>
-
     </div>
   );
 }
@@ -781,7 +677,6 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3">
-
       <span className="font-semibold text-slate-500">
         {label}
       </span>
@@ -789,7 +684,6 @@ function InfoRow({
       <strong className="text-right text-slate-900">
         {value}
       </strong>
-
     </div>
   );
 }
