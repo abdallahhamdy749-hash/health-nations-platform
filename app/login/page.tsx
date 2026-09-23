@@ -18,8 +18,12 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>
@@ -28,6 +32,7 @@ export default function LoginPage() {
 
     setLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -57,16 +62,12 @@ export default function LoginPage() {
       const userEmail =
         user.email?.toLowerCase() ?? "";
 
-      // Admin account
       if (userEmail === ADMIN_EMAIL) {
-        router.replace(
-          "/admin/import-requests"
-        );
+        router.replace("/admin/import-requests");
         router.refresh();
         return;
       }
 
-      // Vendor account
       const {
         data: vendorProfile,
         error: profileError,
@@ -84,14 +85,11 @@ export default function LoginPage() {
       }
 
       if (vendorProfile) {
-        router.replace(
-          "/vendor/dashboard"
-        );
+        router.replace("/vendor/dashboard");
         router.refresh();
         return;
       }
 
-      // Other authenticated users
       router.replace("/");
       router.refresh();
     } catch (error: unknown) {
@@ -102,6 +100,54 @@ export default function LoginPage() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (!normalizedEmail) {
+      setErrorMessage(
+        "اكتب البريد الإلكتروني أولًا ثم اضغط نسيت كلمة المرور."
+      );
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const redirectTo =
+        `${window.location.origin}/reset-password`;
+
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(
+          normalizedEmail,
+          {
+            redirectTo,
+          }
+        );
+
+      if (error) {
+        setErrorMessage(
+          translateResetError(error.message)
+        );
+        return;
+      }
+
+      setSuccessMessage(
+        "تم إرسال رابط تغيير كلمة المرور إلى البريد الإلكتروني. افتح الرسالة واضغط على رابط الاستعادة."
+      );
+    } catch (error: unknown) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "تعذر إرسال رابط استعادة كلمة المرور."
+      );
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -122,8 +168,7 @@ export default function LoginPage() {
           </h2>
 
           <p className="mt-3 leading-7 text-slate-600">
-            سجل الدخول للوصول إلى لوحة التحكم
-            الخاصة بحسابك.
+            سجل الدخول للوصول إلى لوحة التحكم الخاصة بحسابك.
           </p>
         </div>
 
@@ -161,9 +206,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(event) =>
-                setPassword(
-                  event.target.value
-                )
+                setPassword(event.target.value)
               }
               className="form-input"
               placeholder="Enter your password"
@@ -171,9 +214,28 @@ export default function LoginPage() {
             />
           </label>
 
+          <div className="mt-3 text-right">
+            <button
+              type="button"
+              disabled={resetLoading}
+              onClick={() => void handleForgotPassword()}
+              className="text-sm font-bold text-blue-700 transition hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {resetLoading
+                ? "Sending reset link..."
+                : "Forgot Password? | نسيت كلمة المرور؟"}
+            </button>
+          </div>
+
           {errorMessage && (
             <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
               {errorMessage}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium leading-6 text-emerald-700">
+              {successMessage}
             </div>
           )}
 
@@ -203,9 +265,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() =>
-                router.push(
-                  "/supplier/register"
-                )
+                router.push("/supplier/register")
               }
               className="mt-3 inline-flex items-center gap-2 font-bold text-blue-700 hover:text-blue-800"
             >
@@ -266,6 +326,28 @@ function translateLoginError(
     )
   ) {
     return "تم إجراء محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.";
+  }
+
+  return message;
+}
+
+function translateResetError(
+  message: string
+) {
+  const normalizedMessage =
+    message.toLowerCase();
+
+  if (
+    normalizedMessage.includes("rate limit") ||
+    normalizedMessage.includes("too many")
+  ) {
+    return "تم إرسال محاولات استعادة كثيرة. انتظر قليلًا ثم حاول مرة أخرى.";
+  }
+
+  if (
+    normalizedMessage.includes("invalid email")
+  ) {
+    return "البريد الإلكتروني غير صحيح.";
   }
 
   return message;
