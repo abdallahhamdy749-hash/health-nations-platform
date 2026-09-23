@@ -1,17 +1,26 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    const apiKey = process.env.RESEND_API_KEY;
+
+    if (!apiKey) {
+      console.error("RESEND_API_KEY is not configured");
+
+      return NextResponse.json(
+        {
+          error: "Email service is not configured",
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
 
-    const {
-      to,
-      subject,
-      html,
-    } = body;
+    const { to, subject, html } = body;
 
     if (!to || !subject || !html) {
       return NextResponse.json(
@@ -22,14 +31,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!process.env.RESEND_API_KEY) {
-      return NextResponse.json(
-        {
-          error: "RESEND_API_KEY is not configured",
-        },
-        { status: 500 }
-      );
-    }
+    const resend = new Resend(apiKey);
 
     const { data, error } = await resend.emails.send({
       from: "Health Nations <info@healthnationsplat.com>",
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error: error.message,
+          error: error.message || "Failed to send email",
         },
         { status: 400 }
       );
