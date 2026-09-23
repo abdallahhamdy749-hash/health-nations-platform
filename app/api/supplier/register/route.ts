@@ -261,8 +261,7 @@ export async function POST(request: Request) {
         {
           success: false,
           code: "INVALID_ACCOUNT_TYPE",
-          error:
-            "Invalid account type.",
+          error: "Invalid account type.",
         },
         { status: 400 }
       );
@@ -278,7 +277,6 @@ export async function POST(request: Request) {
     } = await publicSupabase.auth.signUp({
       email,
       password,
-
       options: {
         data: {
           role: "vendor",
@@ -476,6 +474,10 @@ export async function POST(request: Request) {
     /*
      * STEP 2
      * supplier_profiles
+     *
+     * We use UPSERT because a Supabase trigger
+     * may already create this row when auth.users
+     * is created.
      */
     const {
       error:
@@ -484,48 +486,54 @@ export async function POST(request: Request) {
       .from(
         "supplier_profiles"
       )
-      .insert({
-        user_id:
-          createdUserId,
+      .upsert(
+        {
+          user_id:
+            createdUserId,
 
-        company_name_en:
-          companyNameEn,
+          company_name_en:
+            companyNameEn,
 
-        company_name_ar:
-          companyNameAr || null,
+          company_name_ar:
+            companyNameAr || null,
 
-        contact_name:
-          contactName,
+          contact_name:
+            contactName,
 
-        email,
+          email,
 
-        phone,
+          phone,
 
-        country:
-          countryCode,
+          country:
+            countryCode,
 
-        city,
+          city,
 
-        address,
+          address,
 
-        supplier_type:
-          supplierType,
+          supplier_type:
+            supplierType,
 
-        slug:
-          supplierSlug,
+          slug:
+            supplierSlug,
 
-        status:
-          "pending",
+          status:
+            "pending",
 
-        verified:
-          false,
-      });
+          verified:
+            false,
+        },
+        {
+          onConflict:
+            "user_id",
+        }
+      );
 
     if (
       supplierProfileError
     ) {
       console.error(
-        "supplier_profiles insert error:",
+        "supplier_profiles upsert error:",
         {
           message:
             supplierProfileError.message,
@@ -546,6 +554,10 @@ export async function POST(request: Request) {
     /*
      * STEP 3
      * vendor_profiles
+     *
+     * Same approach here:
+     * use UPSERT in case a trigger already
+     * created this profile.
      */
     const {
       error:
@@ -554,71 +566,77 @@ export async function POST(request: Request) {
       .from(
         "vendor_profiles"
       )
-      .insert({
-        id:
-          createdUserId,
+      .upsert(
+        {
+          id:
+            createdUserId,
 
-        account_type:
-          accountType,
+          account_type:
+            accountType,
 
-        account_status:
-          "pending",
+          account_status:
+            "pending",
 
-        company_name_en:
-          companyNameEn,
+          company_name_en:
+            companyNameEn,
 
-        company_name_ar:
-          companyNameAr || null,
+          company_name_ar:
+            companyNameAr || null,
 
-        contact_name:
-          contactName,
+          contact_name:
+            contactName,
 
-        email,
+          email,
 
-        phone,
+          phone,
 
-        country_code:
-          countryCode,
+          country_code:
+            countryCode,
 
-        country_name:
-          countryName,
+          country_name:
+            countryName,
 
-        city,
+          city,
 
-        address,
+          address,
 
-        currency,
+          currency,
 
-        supplier_type:
-          supplierType,
+          supplier_type:
+            supplierType,
 
-        commercial_registration:
-          commercialRegistration,
+          commercial_registration:
+            commercialRegistration,
 
-        tax_number:
-          taxNumber,
+          tax_number:
+            taxNumber,
 
-        license_number:
-          licenseNumber || null,
+          license_number:
+            licenseNumber || null,
 
-        is_verified:
-          false,
+          is_verified:
+            false,
 
-        can_publish_products:
-          false,
+          can_publish_products:
+            false,
 
-        store_slug:
-          supplierSlug,
+          store_slug:
+            supplierSlug,
 
-        store_is_active:
-          false,
-      });
+          store_is_active:
+            false,
+        },
+        {
+          onConflict:
+            "id",
+        }
+      );
 
     if (
       vendorProfileError
     ) {
       console.error(
-        "vendor_profiles insert error:",
+        "vendor_profiles upsert error:",
         {
           message:
             vendorProfileError.message,
@@ -636,6 +654,12 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+     * Registration is successful only when:
+     * - auth.users exists
+     * - supplier_profiles exists
+     * - vendor_profiles exists
+     */
     return NextResponse.json(
       {
         success: true,
@@ -674,7 +698,7 @@ export async function POST(request: Request) {
     );
 
     /*
-     * Remove incomplete registration.
+     * Cleanup incomplete registration.
      */
     if (createdUserId) {
       try {
@@ -706,7 +730,9 @@ export async function POST(request: Request) {
             createdUserId
           );
 
-        if (deleteUserError) {
+        if (
+          deleteUserError
+        ) {
           console.error(
             "Auth cleanup error:",
             deleteUserError.message
