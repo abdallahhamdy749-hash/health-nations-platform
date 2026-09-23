@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -11,9 +12,12 @@ import {
   Building2,
   CheckCircle2,
   Globe2,
+  ImageIcon,
   Loader2,
   Save,
   Store,
+  Upload,
+  X,
 } from "lucide-react";
 
 import { useRouter } from "next/navigation";
@@ -47,6 +51,9 @@ const initialForm: FormState = {
   coverImageUrl: "",
   whatsappNumber: "",
 };
+
+const STORAGE_BUCKET = "vendor-assets";
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -86,11 +93,31 @@ function normalizeSlug(value: string) {
     .replace(/^-|-$/g, "");
 }
 
+function sanitizeFileName(fileName: string) {
+  return fileName
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]/g, "")
+    .toLowerCase();
+}
+
 export default function VendorStoreSettingsPage() {
   const router = useRouter();
 
+  const logoInputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  const coverInputRef =
+    useRef<HTMLInputElement | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [uploadingLogo, setUploadingLogo] =
+    useState(false);
+
+  const [uploadingCover, setUploadingCover] =
+    useState(false);
 
   const [profile, setProfile] =
     useState<VendorProfile | null>(null);
@@ -178,13 +205,7 @@ export default function VendorStoreSettingsPage() {
   }, [router]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadProfile();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
+    void loadProfile();
   }, [loadProfile]);
 
   function updateField(
@@ -198,6 +219,129 @@ export default function VendorStoreSettingsPage() {
 
     setSuccessMessage("");
     setErrorMessage("");
+  }
+
+  async function uploadImage(
+    file: File,
+    imageType: "logo" | "cover"
+  ) {
+    try {
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      if (imageType === "logo") {
+        setUploadingLogo(true);
+      } else {
+        setUploadingCover(true);
+      }
+
+      if (!file.type.startsWith("image/")) {
+        throw new Error(
+          "الملف المختار يجب أن يكون صورة."
+        );
+      }
+
+      if (file.size > MAX_IMAGE_SIZE) {
+        throw new Error(
+          "حجم الصورة يجب ألا يتجاوز 5 MB."
+        );
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw new Error(userError.message);
+      }
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const safeFileName =
+        sanitizeFileName(file.name);
+
+      const uniqueName =
+        `${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
+
+      const filePath =
+        `branding/${user.id}/${imageType}/${uniqueName}`;
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            contentType: file.type,
+            upsert: false,
+          });
+
+      if (uploadError) {
+        throw new Error(
+          `Image upload failed: ${uploadError.message}`
+        );
+      }
+
+      const { data: publicUrlData } =
+        supabase.storage
+          .from(STORAGE_BUCKET)
+          .getPublicUrl(filePath);
+
+      const publicUrl =
+        publicUrlData.publicUrl;
+
+      if (!publicUrl) {
+        throw new Error(
+          "تم رفع الصورة ولكن تعذر إنشاء الرابط."
+        );
+      }
+
+      if (imageType === "logo") {
+        updateField(
+          "logoUrl",
+          publicUrl
+        );
+
+        setSuccessMessage(
+          "تم رفع شعار الشركة بنجاح. اضغط حفظ إعدادات المتجر."
+        );
+      } else {
+        updateField(
+          "coverImageUrl",
+          publicUrl
+        );
+
+        setSuccessMessage(
+          "تم رفع صورة الغلاف بنجاح. اضغط حفظ إعدادات المتجر."
+        );
+      }
+    } catch (error: unknown) {
+      console.error(
+        "Branding image upload error:",
+        error
+      );
+
+      setErrorMessage(
+        getErrorMessage(error)
+      );
+    } finally {
+      if (imageType === "logo") {
+        setUploadingLogo(false);
+
+        if (logoInputRef.current) {
+          logoInputRef.current.value = "";
+        }
+      } else {
+        setUploadingCover(false);
+
+        if (coverInputRef.current) {
+          coverInputRef.current.value = "";
+        }
+      }
+    }
   }
 
   async function handleSave(
@@ -229,10 +373,6 @@ export default function VendorStoreSettingsPage() {
         );
       }
 
-      /*
-       * Check that another vendor
-       * is not already using this slug.
-       */
       const {
         data: existingSlug,
         error: slugError,
@@ -260,15 +400,19 @@ export default function VendorStoreSettingsPage() {
         .from("vendor_profiles")
         .update({
           store_slug: cleanSlug,
+
           store_description:
             form.storeDescription.trim() ||
             null,
+
           logo_url:
             form.logoUrl.trim() ||
             null,
+
           cover_image_url:
             form.coverImageUrl.trim() ||
             null,
+
           whatsapp_number:
             form.whatsappNumber.trim() ||
             null,
@@ -300,12 +444,16 @@ export default function VendorStoreSettingsPage() {
       setForm({
         storeSlug:
           vendor.store_slug ?? "",
+
         storeDescription:
           vendor.store_description ?? "",
+
         logoUrl:
           vendor.logo_url ?? "",
+
         coverImageUrl:
           vendor.cover_image_url ?? "",
+
         whatsappNumber:
           vendor.whatsapp_number ?? "",
       });
@@ -417,8 +565,7 @@ export default function VendorStoreSettingsPage() {
               </h1>
 
               <p className="mt-2 text-slate-300">
-                إعداد وتحديث بيانات متجرك
-                على Health Nations.
+                إعداد وتحديث بيانات متجرك على Health Nations.
               </p>
             </div>
 
@@ -467,8 +614,7 @@ export default function VendorStoreSettingsPage() {
                 </h2>
 
                 <p className="text-sm text-slate-500">
-                  إعداد رابط وصفحة المتجر
-                  العامة.
+                  إعداد رابط وصفحة المتجر العامة.
                 </p>
               </div>
             </div>
@@ -539,57 +685,52 @@ export default function VendorStoreSettingsPage() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Logo and cover image URLs.
+              ارفع شعار الشركة وصورة غلاف المتجر مباشرة من جهازك.
             </p>
 
-            <div className="mt-6 grid gap-5 md:grid-cols-2">
-              <Field
-                label="Company Logo URL"
-                value={form.logoUrl}
-                placeholder="https://..."
-                onChange={(value) =>
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <ImageUploadCard
+                title="Company Logo"
+                subtitle="Square image recommended"
+                imageUrl={form.logoUrl}
+                loading={uploadingLogo}
+                inputRef={logoInputRef}
+                onUpload={(file) =>
+                  void uploadImage(
+                    file,
+                    "logo"
+                  )
+                }
+                onRemove={() =>
                   updateField(
                     "logoUrl",
-                    value
+                    ""
                   )
                 }
               />
 
-              <Field
-                label="Cover Image URL"
-                value={
+              <ImageUploadCard
+                title="Cover Image"
+                subtitle="Wide image recommended"
+                imageUrl={
                   form.coverImageUrl
                 }
-                placeholder="https://..."
-                onChange={(value) =>
+                loading={uploadingCover}
+                inputRef={coverInputRef}
+                onUpload={(file) =>
+                  void uploadImage(
+                    file,
+                    "cover"
+                  )
+                }
+                onRemove={() =>
                   updateField(
                     "coverImageUrl",
-                    value
+                    ""
                   )
                 }
               />
             </div>
-
-            {(form.logoUrl ||
-              form.coverImageUrl) && (
-              <div className="mt-6 grid gap-5 md:grid-cols-2">
-                {form.logoUrl && (
-                  <ImagePreview
-                    label="Logo Preview"
-                    src={form.logoUrl}
-                  />
-                )}
-
-                {form.coverImageUrl && (
-                  <ImagePreview
-                    label="Cover Preview"
-                    src={
-                      form.coverImageUrl
-                    }
-                  />
-                )}
-              </div>
-            )}
           </section>
 
           <section className="rounded-3xl bg-white p-6 shadow-sm md:p-8">
@@ -598,10 +739,7 @@ export default function VendorStoreSettingsPage() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              بيانات التواصل الخاصة
-              بالمتجر. ظهور وسائل التواصل
-              للعامة يعتمد على سياسة
-              Health Nations.
+              بيانات التواصل الخاصة بالمتجر. ظهور وسائل التواصل للعامة يعتمد على سياسة Health Nations.
             </p>
 
             <div className="mt-6">
@@ -636,7 +774,11 @@ export default function VendorStoreSettingsPage() {
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={
+                saving ||
+                uploadingLogo ||
+                uploadingCover
+              }
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-7 py-3.5 font-black text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? (
@@ -656,6 +798,134 @@ export default function VendorStoreSettingsPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+function ImageUploadCard({
+  title,
+  subtitle,
+  imageUrl,
+  loading,
+  inputRef,
+  onUpload,
+  onRemove,
+}: {
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  loading: boolean;
+  inputRef:
+    React.RefObject<HTMLInputElement | null>;
+  onUpload: (file: File) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 p-5">
+      <div>
+        <h3 className="font-black">
+          {title}
+        </h3>
+
+        <p className="mt-1 text-sm text-slate-500">
+          {subtitle}
+        </p>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={(event) => {
+          const file =
+            event.target.files?.[0];
+
+          if (file) {
+            onUpload(file);
+          }
+        }}
+      />
+
+      {imageUrl ? (
+        <div className="mt-5">
+          <div className="flex h-52 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt={title}
+              className="h-full w-full object-contain"
+            />
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() =>
+                inputRef.current?.click()
+              }
+              className="flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+            >
+              Change Image
+            </button>
+
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onRemove}
+              className="inline-flex items-center justify-center rounded-xl bg-red-50 px-4 py-2.5 text-red-600 transition hover:bg-red-100"
+            >
+              <X size={17} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() =>
+            inputRef.current?.click()
+          }
+          className="mt-5 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-5 py-10 text-center transition hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? (
+            <>
+              <Loader2
+                size={32}
+                className="animate-spin text-blue-700"
+              />
+
+              <strong className="mt-3 text-blue-800">
+                Uploading...
+              </strong>
+            </>
+          ) : (
+            <>
+              <div className="rounded-2xl bg-white p-3 text-blue-700 shadow-sm">
+                <Upload size={26} />
+              </div>
+
+              <strong className="mt-4 text-blue-900">
+                Upload Image
+              </strong>
+
+              <span className="mt-2 text-sm text-slate-500">
+                JPG, PNG, WEBP or GIF
+              </span>
+
+              <span className="mt-1 text-xs text-slate-400">
+                Maximum 5 MB
+              </span>
+
+              <ImageIcon
+                size={18}
+                className="mt-3 text-slate-400"
+              />
+            </>
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -685,31 +955,6 @@ function Field({
         }
         className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-blue-500"
       />
-    </div>
-  );
-}
-
-function ImagePreview({
-  label,
-  src,
-}: {
-  label: string;
-  src: string;
-}) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200">
-      <div className="border-b border-slate-100 px-4 py-3 text-sm font-bold text-slate-600">
-        {label}
-      </div>
-
-      <div className="flex h-44 items-center justify-center bg-slate-50 p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt={label}
-          className="max-h-full max-w-full object-contain"
-        />
-      </div>
     </div>
   );
 }
