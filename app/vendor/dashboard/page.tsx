@@ -97,6 +97,7 @@ export default function VendorDashboardPage() {
         productsResult,
         ordersResult,
         quotationsResult,
+        messagesResult,
       ] = await Promise.all([
         supabase
           .from("vendor_profiles")
@@ -119,6 +120,14 @@ export default function VendorDashboardPage() {
 
         supabase
           .from("vendor_quotations")
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("vendor_id", user.id),
+
+        supabase
+          .from("vendor_messages")
           .select("id", {
             count: "exact",
             head: true,
@@ -158,6 +167,13 @@ export default function VendorDashboardPage() {
         );
       }
 
+      if (messagesResult.error) {
+        console.error(
+          "Messages loading error:",
+          messagesResult.error
+        );
+      }
+
       const products =
         (productsResult.data ?? []) as ProductSummary[];
 
@@ -184,7 +200,7 @@ export default function VendorDashboardPage() {
         outOfStockProducts,
         orders: ordersResult.count ?? 0,
         quotations: quotationsResult.count ?? 0,
-        messages: 0,
+        messages: messagesResult.count ?? 0,
       });
     } catch (error: unknown) {
       console.error("Vendor dashboard error:", error);
