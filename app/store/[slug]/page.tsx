@@ -28,6 +28,11 @@ import {
 
 import { supabase } from "@/lib/supabase";
 
+import {
+  Language,
+  useLanguage,
+} from "@/components/LanguageProvider";
+
 const HEALTH_NATIONS_WHATSAPP =
   "966568697530";
 
@@ -102,12 +107,720 @@ type Product = {
   featured: boolean | null;
 };
 
+type Translation = {
+  loadingStore: string;
+  storeNotFound: string;
+  unableToLoadStore: string;
+  backMarketplace: string;
+
+  globalSupplier: string;
+  verified: string;
+  globalMarketplace: string;
+  contactHealthNations: string;
+
+  aboutStore: string;
+  companyInformation: string;
+  noDescription: string;
+
+  needProducts: string;
+  needProductsDescription: string;
+
+  allProducts: string;
+  equipment: string;
+  consumables: string;
+  spareParts: string;
+
+  productCatalog: string;
+  storeProducts: string;
+  approvedProduct: string;
+  approvedProducts: string;
+  of: string;
+
+  searchPlaceholder: string;
+  allProductTypes: string;
+  medicalEquipment: string;
+  allCategories: string;
+
+  noProductsFound: string;
+  noProductsDescription: string;
+  clearFilters: string;
+
+  featured: string;
+  consumable: string;
+  sparePart: string;
+
+  inStock: string;
+  outOfStock: string;
+
+  medicalProduct: string;
+
+  partNumber: string;
+  manufacturer: string;
+  compatible: string;
+  model: string;
+  condition: string;
+
+  conditionNew: string;
+  conditionRefurbished: string;
+  conditionUsed: string;
+
+  brandUnavailable: string;
+
+  salePrice: string;
+  monthlyRental: string;
+  contactForPrice: string;
+
+  viewProductDetails: string;
+  requestSparePart: string;
+
+  supplier: string;
+};
+
+const translations: Record<
+  Language,
+  Translation
+> = {
+  ar: {
+    loadingStore:
+      "جاري تحميل متجر المورد...",
+
+    storeNotFound:
+      "المتجر غير موجود",
+
+    unableToLoadStore:
+      "تعذر تحميل هذا المتجر.",
+
+    backMarketplace:
+      "العودة إلى السوق العالمي",
+
+    globalSupplier:
+      "مورد عالمي على صحة الأمم",
+
+    verified:
+      "موثق",
+
+    globalMarketplace:
+      "السوق العالمي",
+
+    contactHealthNations:
+      "تواصل مع صحة الأمم",
+
+    aboutStore:
+      "عن المتجر",
+
+    companyInformation:
+      "معلومات الشركة",
+
+    noDescription:
+      "لم تتم إضافة وصف للشركة حتى الآن.",
+
+    needProducts:
+      "تحتاج منتجات هذا المورد؟",
+
+    needProductsDescription:
+      "أرسل طلبك إلى صحة الأمم، وسنقوم بمراجعته والتنسيق مع المورد نيابةً عنك.",
+
+    allProducts:
+      "جميع المنتجات",
+
+    equipment:
+      "الأجهزة",
+
+    consumables:
+      "المستهلكات",
+
+    spareParts:
+      "قطع الغيار",
+
+    productCatalog:
+      "كتالوج المنتجات",
+
+    storeProducts:
+      "منتجات المتجر",
+
+    approvedProduct:
+      "منتج معتمد",
+
+    approvedProducts:
+      "منتجات معتمدة",
+
+    of: "من",
+
+    searchPlaceholder:
+      "ابحث بالمنتج أو Part Number أو الجهاز...",
+
+    allProductTypes:
+      "جميع أنواع المنتجات",
+
+    medicalEquipment:
+      "الأجهزة الطبية",
+
+    allCategories:
+      "جميع الأقسام",
+
+    noProductsFound:
+      "لا توجد منتجات مطابقة",
+
+    noProductsDescription:
+      "لا توجد حاليًا منتجات معتمدة مطابقة للبحث والفلاتر المحددة.",
+
+    clearFilters:
+      "مسح الفلاتر",
+
+    featured: "مميز",
+
+    consumable:
+      "مستهلك طبي",
+
+    sparePart:
+      "قطعة غيار",
+
+    inStock:
+      "متوفر",
+
+    outOfStock:
+      "غير متوفر",
+
+    medicalProduct:
+      "منتج طبي",
+
+    partNumber:
+      "رقم القطعة",
+
+    manufacturer:
+      "الشركة المصنعة",
+
+    compatible:
+      "الجهاز المتوافق",
+
+    model:
+      "الموديل",
+
+    condition:
+      "الحالة",
+
+    conditionNew:
+      "جديد",
+
+    conditionRefurbished:
+      "مجدد",
+
+    conditionUsed:
+      "مستعمل",
+
+    brandUnavailable:
+      "معلومات الماركة غير متوفرة",
+
+    salePrice:
+      "سعر البيع",
+
+    monthlyRental:
+      "الإيجار الشهري",
+
+    contactForPrice:
+      "تواصل لمعرفة السعر",
+
+    viewProductDetails:
+      "عرض تفاصيل المنتج",
+
+    requestSparePart:
+      "طلب قطعة الغيار",
+
+    supplier:
+      "المورد",
+  },
+
+  en: {
+    loadingStore:
+      "Loading store...",
+
+    storeNotFound:
+      "Store not found",
+
+    unableToLoadStore:
+      "Unable to load this store.",
+
+    backMarketplace:
+      "Back to Marketplace",
+
+    globalSupplier:
+      "Health Nations Global Supplier",
+
+    verified:
+      "Verified",
+
+    globalMarketplace:
+      "Global Marketplace",
+
+    contactHealthNations:
+      "Contact Health Nations",
+
+    aboutStore:
+      "About the Store",
+
+    companyInformation:
+      "Company Information",
+
+    noDescription:
+      "No company description has been added yet.",
+
+    needProducts:
+      "Need This Supplier's Products?",
+
+    needProductsDescription:
+      "Send your request to Health Nations. We will review it and coordinate with the supplier on your behalf.",
+
+    allProducts:
+      "All Products",
+
+    equipment:
+      "Equipment",
+
+    consumables:
+      "Consumables",
+
+    spareParts:
+      "Spare Parts",
+
+    productCatalog:
+      "Product Catalog",
+
+    storeProducts:
+      "Store Products",
+
+    approvedProduct:
+      "approved product",
+
+    approvedProducts:
+      "approved products",
+
+    of: "of",
+
+    searchPlaceholder:
+      "Product, Part Number, Device...",
+
+    allProductTypes:
+      "All Product Types",
+
+    medicalEquipment:
+      "Medical Equipment",
+
+    allCategories:
+      "All Categories",
+
+    noProductsFound:
+      "No products found",
+
+    noProductsDescription:
+      "There are currently no approved products matching your search and filters.",
+
+    clearFilters:
+      "Clear Filters",
+
+    featured:
+      "Featured",
+
+    consumable:
+      "Consumable",
+
+    sparePart:
+      "Spare Part",
+
+    inStock:
+      "In Stock",
+
+    outOfStock:
+      "Out of Stock",
+
+    medicalProduct:
+      "Medical Product",
+
+    partNumber:
+      "Part No.",
+
+    manufacturer:
+      "Manufacturer",
+
+    compatible:
+      "Compatible",
+
+    model:
+      "Model",
+
+    condition:
+      "Condition",
+
+    conditionNew:
+      "New",
+
+    conditionRefurbished:
+      "Refurbished",
+
+    conditionUsed:
+      "Used",
+
+    brandUnavailable:
+      "Brand information unavailable",
+
+    salePrice:
+      "Sale Price",
+
+    monthlyRental:
+      "Monthly Rental",
+
+    contactForPrice:
+      "Contact for price",
+
+    viewProductDetails:
+      "View Product Details",
+
+    requestSparePart:
+      "Request Spare Part",
+
+    supplier:
+      "Supplier",
+  },
+
+  zh: {
+    loadingStore:
+      "正在加载供应商商店...",
+
+    storeNotFound:
+      "未找到商店",
+
+    unableToLoadStore:
+      "无法加载此商店。",
+
+    backMarketplace:
+      "返回全球市场",
+
+    globalSupplier:
+      "Health Nations 全球供应商",
+
+    verified:
+      "已认证",
+
+    globalMarketplace:
+      "全球市场",
+
+    contactHealthNations:
+      "联系 Health Nations",
+
+    aboutStore:
+      "关于商店",
+
+    companyInformation:
+      "公司信息",
+
+    noDescription:
+      "尚未添加公司描述。",
+
+    needProducts:
+      "需要该供应商的产品？",
+
+    needProductsDescription:
+      "请将您的需求发送给 Health Nations。我们将审核您的需求，并代表您与供应商协调。",
+
+    allProducts:
+      "所有产品",
+
+    equipment:
+      "设备",
+
+    consumables:
+      "耗材",
+
+    spareParts:
+      "备件",
+
+    productCatalog:
+      "产品目录",
+
+    storeProducts:
+      "商店产品",
+
+    approvedProduct:
+      "个已批准产品",
+
+    approvedProducts:
+      "个已批准产品",
+
+    of: "共",
+
+    searchPlaceholder:
+      "搜索产品、零件编号或设备...",
+
+    allProductTypes:
+      "所有产品类型",
+
+    medicalEquipment:
+      "医疗设备",
+
+    allCategories:
+      "所有类别",
+
+    noProductsFound:
+      "未找到产品",
+
+    noProductsDescription:
+      "当前没有符合搜索条件和筛选条件的已批准产品。",
+
+    clearFilters:
+      "清除筛选",
+
+    featured:
+      "精选",
+
+    consumable:
+      "医疗耗材",
+
+    sparePart:
+      "备件",
+
+    inStock:
+      "有库存",
+
+    outOfStock:
+      "缺货",
+
+    medicalProduct:
+      "医疗产品",
+
+    partNumber:
+      "零件编号",
+
+    manufacturer:
+      "制造商",
+
+    compatible:
+      "兼容设备",
+
+    model:
+      "型号",
+
+    condition:
+      "状态",
+
+    conditionNew:
+      "全新",
+
+    conditionRefurbished:
+      "翻新",
+
+    conditionUsed:
+      "二手",
+
+    brandUnavailable:
+      "暂无品牌信息",
+
+    salePrice:
+      "销售价格",
+
+    monthlyRental:
+      "月租金",
+
+    contactForPrice:
+      "联系询价",
+
+    viewProductDetails:
+      "查看产品详情",
+
+    requestSparePart:
+      "申请备件",
+
+    supplier:
+      "供应商",
+  },
+
+  tr: {
+    loadingStore:
+      "Mağaza yükleniyor...",
+
+    storeNotFound:
+      "Mağaza bulunamadı",
+
+    unableToLoadStore:
+      "Bu mağaza yüklenemedi.",
+
+    backMarketplace:
+      "Pazara Dön",
+
+    globalSupplier:
+      "Health Nations Küresel Tedarikçisi",
+
+    verified:
+      "Doğrulanmış",
+
+    globalMarketplace:
+      "Küresel Pazar",
+
+    contactHealthNations:
+      "Health Nations ile İletişime Geç",
+
+    aboutStore:
+      "Mağaza Hakkında",
+
+    companyInformation:
+      "Şirket Bilgileri",
+
+    noDescription:
+      "Henüz şirket açıklaması eklenmedi.",
+
+    needProducts:
+      "Bu Tedarikçinin Ürünlerine mi İhtiyacınız Var?",
+
+    needProductsDescription:
+      "Talebinizi Health Nations'a gönderin. Talebinizi inceleyip sizin adınıza tedarikçiyle koordinasyon sağlayacağız.",
+
+    allProducts:
+      "Tüm Ürünler",
+
+    equipment:
+      "Cihazlar",
+
+    consumables:
+      "Sarf Malzemeleri",
+
+    spareParts:
+      "Yedek Parçalar",
+
+    productCatalog:
+      "Ürün Kataloğu",
+
+    storeProducts:
+      "Mağaza Ürünleri",
+
+    approvedProduct:
+      "onaylı ürün",
+
+    approvedProducts:
+      "onaylı ürün",
+
+    of: "/",
+
+    searchPlaceholder:
+      "Ürün, Parça Numarası, Cihaz...",
+
+    allProductTypes:
+      "Tüm Ürün Türleri",
+
+    medicalEquipment:
+      "Tıbbi Cihazlar",
+
+    allCategories:
+      "Tüm Kategoriler",
+
+    noProductsFound:
+      "Ürün bulunamadı",
+
+    noProductsDescription:
+      "Arama ve filtrelerinize uyan onaylı ürün bulunmamaktadır.",
+
+    clearFilters:
+      "Filtreleri Temizle",
+
+    featured:
+      "Öne Çıkan",
+
+    consumable:
+      "Sarf Malzemesi",
+
+    sparePart:
+      "Yedek Parça",
+
+    inStock:
+      "Stokta",
+
+    outOfStock:
+      "Stokta Yok",
+
+    medicalProduct:
+      "Medikal Ürün",
+
+    partNumber:
+      "Parça No.",
+
+    manufacturer:
+      "Üretici",
+
+    compatible:
+      "Uyumlu Cihaz",
+
+    model:
+      "Model",
+
+    condition:
+      "Durum",
+
+    conditionNew:
+      "Yeni",
+
+    conditionRefurbished:
+      "Yenilenmiş",
+
+    conditionUsed:
+      "Kullanılmış",
+
+    brandUnavailable:
+      "Marka bilgisi mevcut değil",
+
+    salePrice:
+      "Satış Fiyatı",
+
+    monthlyRental:
+      "Aylık Kira",
+
+    contactForPrice:
+      "Fiyat için iletişime geçin",
+
+    viewProductDetails:
+      "Ürün Detaylarını Gör",
+
+    requestSparePart:
+      "Yedek Parça Talep Et",
+
+    supplier:
+      "Tedarikçi",
+  },
+};
+
+const languageOptions: {
+  code: Language;
+  label: string;
+}[] = [
+  {
+    code: "ar",
+    label: "🇸🇦 العربية",
+  },
+  {
+    code: "en",
+    label: "🇬🇧 English",
+  },
+  {
+    code: "zh",
+    label: "🇨🇳 中文",
+  },
+  {
+    code: "tr",
+    label: "🇹🇷 Türkçe",
+  },
+];
+
 export default function PublicStorePage() {
   const params =
     useParams<{ slug: string }>();
 
   const slug =
     decodeURIComponent(params.slug);
+
+  const {
+    language,
+    setLanguage,
+    isArabic,
+  } = useLanguage();
+
+  const t =
+    translations[language];
 
   const [supplier, setSupplier] =
     useState<SupplierProfile | null>(
@@ -279,7 +992,9 @@ export default function PublicStorePage() {
       }, 0);
 
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(
+        timer
+      );
     };
   }, [loadStore]);
 
@@ -403,12 +1118,17 @@ export default function PublicStorePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
+      <main
+        dir={
+          isArabic ? "rtl" : "ltr"
+        }
+        className="flex min-h-screen items-center justify-center bg-slate-100"
+      >
         <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-5 shadow-sm">
           <Loader2 className="animate-spin text-blue-700" />
 
           <span className="font-bold text-slate-700">
-            Loading store...
+            {t.loadingStore}
           </span>
         </div>
       </main>
@@ -417,7 +1137,12 @@ export default function PublicStorePage() {
 
   if (!supplier) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-5">
+      <main
+        dir={
+          isArabic ? "rtl" : "ltr"
+        }
+        className="flex min-h-screen items-center justify-center bg-slate-100 px-5"
+      >
         <div className="max-w-xl rounded-3xl bg-white p-8 text-center shadow-sm">
           <AlertCircle
             className="mx-auto text-red-600"
@@ -425,30 +1150,56 @@ export default function PublicStorePage() {
           />
 
           <h1 className="mt-4 text-3xl font-black">
-            Store not found
+            {t.storeNotFound}
           </h1>
 
           <p className="mt-3 text-slate-600">
-            {errorMessage}
+            {errorMessage ||
+              t.unableToLoadStore}
           </p>
 
           <Link
             href="/store"
             className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 font-bold text-white"
           >
-            Back to Marketplace
+            {t.backMarketplace}
           </Link>
         </div>
       </main>
     );
   }
 
+  const supplierName =
+    language === "ar"
+      ? supplier.company_name_ar ||
+        supplier.company_name_en
+      : supplier.company_name_en ||
+        supplier.company_name_ar ||
+        t.supplier;
+
+  const secondarySupplierName =
+    language === "ar"
+      ? supplier.company_name_en
+      : supplier.company_name_ar;
+
+  const supplierDescription =
+    language === "ar"
+      ? supplier.description_ar ||
+        supplier.description_en
+      : supplier.description_en ||
+        supplier.description_ar;
+
+  const secondarySupplierDescription =
+    language === "ar"
+      ? supplier.description_en
+      : supplier.description_ar;
+
   const storeWhatsappUrl =
     createWhatsAppUrl(
       HEALTH_NATIONS_WHATSAPP,
       `استفسار عن متجر مورد من منصة صحة الأمم
 
-المورد: ${supplier.company_name_en}
+المورد: ${supplierName}
 الدولة: ${supplier.country || "غير محدد"}
 
 أرغب في الاستفسار عن المنتجات المتوفرة من هذا المورد والتنسيق من خلال صحة الأمم.
@@ -460,14 +1211,21 @@ Source: Health Nations Global Marketplace`
     );
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main
+      dir={
+        isArabic ? "rtl" : "ltr"
+      }
+      className="min-h-screen bg-slate-100 text-slate-900"
+    >
+      {/* SUPPLIER HERO */}
+
       <section className="relative min-h-[360px] overflow-hidden bg-slate-950">
         {supplier.cover_url ? (
           <img
             src={
               supplier.cover_url
             }
-            alt={`${supplier.company_name_en} cover`}
+            alt={`${supplierName} cover`}
             className="absolute inset-0 h-full w-full object-cover opacity-35"
           />
         ) : (
@@ -484,7 +1242,7 @@ Source: Health Nations Global Marketplace`
                       supplier.logo_url
                     }
                     alt={
-                      supplier.company_name_en
+                      supplierName
                     }
                     className="h-full w-full object-cover"
                   />
@@ -499,8 +1257,7 @@ Source: Health Nations Global Marketplace`
               <div className="text-white">
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="font-bold uppercase tracking-wider text-blue-300">
-                    Health Nations
-                    Global Supplier
+                    {t.globalSupplier}
                   </p>
 
                   {supplier.verified && (
@@ -508,27 +1265,32 @@ Source: Health Nations Global Marketplace`
                       <BadgeCheck
                         size={15}
                       />
-                      Verified
+
+                      {t.verified}
                     </span>
                   )}
                 </div>
 
                 <h1 className="mt-2 text-4xl font-black md:text-5xl">
-                  {
-                    supplier.company_name_en
-                  }
+                  {supplierName}
                 </h1>
 
-                {supplier.company_name_ar && (
-                  <p
-                    className="mt-2 text-xl text-slate-200"
-                    dir="rtl"
-                  >
-                    {
-                      supplier.company_name_ar
-                    }
-                  </p>
-                )}
+                {secondarySupplierName &&
+                  secondarySupplierName !==
+                    supplierName && (
+                    <p
+                      className="mt-2 text-xl text-slate-200"
+                      dir={
+                        language === "ar"
+                          ? "ltr"
+                          : "rtl"
+                      }
+                    >
+                      {
+                        secondarySupplierName
+                      }
+                    </p>
+                  )}
 
                 <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-300">
                   {(supplier.city ||
@@ -565,6 +1327,40 @@ Source: Health Nations Global Marketplace`
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <div className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-3 text-white backdrop-blur">
+                <Globe2
+                  size={18}
+                />
+
+                <select
+                  value={language}
+                  onChange={(event) =>
+                    setLanguage(
+                      event.target
+                        .value as Language
+                    )
+                  }
+                  aria-label="Select language"
+                  className="cursor-pointer bg-transparent text-sm font-bold text-white outline-none"
+                >
+                  {languageOptions.map(
+                    (item) => (
+                      <option
+                        key={
+                          item.code
+                        }
+                        value={
+                          item.code
+                        }
+                        className="text-slate-900"
+                      >
+                        {item.label}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
               <Link
                 href="/store"
                 className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 font-bold text-white backdrop-blur transition hover:bg-white/20"
@@ -572,7 +1368,10 @@ Source: Health Nations Global Marketplace`
                 <Globe2
                   size={18}
                 />
-                Global Marketplace
+
+                {
+                  t.globalMarketplace
+                }
               </Link>
 
               <a
@@ -586,7 +1385,10 @@ Source: Health Nations Global Marketplace`
                 <MessageCircle
                   size={19}
                 />
-                Contact Health Nations
+
+                {
+                  t.contactHealthNations
+                }
               </a>
             </div>
           </div>
@@ -594,40 +1396,50 @@ Source: Health Nations Global Marketplace`
       </section>
 
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+        {/* STORE INFO */}
+
         <section className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <div className="rounded-3xl bg-white p-6 shadow-sm md:p-8">
             <p className="text-sm font-bold uppercase tracking-wider text-blue-700">
-              About the Store
+              {t.aboutStore}
             </p>
 
             <h2 className="mt-2 text-3xl font-black">
-              Company Information
+              {
+                t.companyInformation
+              }
             </h2>
 
-            {supplier.description_en ? (
-              <p className="mt-5 leading-8 text-slate-600">
+            {supplierDescription ? (
+              <p className="mt-5 whitespace-pre-line leading-8 text-slate-600">
                 {
-                  supplier.description_en
+                  supplierDescription
                 }
               </p>
             ) : (
               <p className="mt-5 text-slate-500">
-                No English
-                description has been
-                added yet.
-              </p>
-            )}
-
-            {supplier.description_ar && (
-              <p
-                className="mt-5 border-t border-slate-100 pt-5 leading-8 text-slate-600"
-                dir="rtl"
-              >
                 {
-                  supplier.description_ar
+                  t.noDescription
                 }
               </p>
             )}
+
+            {secondarySupplierDescription &&
+              secondarySupplierDescription !==
+                supplierDescription && (
+                <p
+                  className="mt-5 whitespace-pre-line border-t border-slate-100 pt-5 leading-8 text-slate-600"
+                  dir={
+                    language === "ar"
+                      ? "ltr"
+                      : "rtl"
+                  }
+                >
+                  {
+                    secondarySupplierDescription
+                  }
+                </p>
+              )}
           </div>
 
           <aside className="rounded-3xl bg-white p-6 shadow-sm">
@@ -638,26 +1450,13 @@ Source: Health Nations Global Marketplace`
             </div>
 
             <h2 className="mt-5 text-xl font-black">
-              Need This
-              Supplier&apos;s
-              Products?
+              {t.needProducts}
             </h2>
 
             <p className="mt-3 leading-7 text-slate-600">
-              Send your request to
-              Health Nations. We will
-              review it and coordinate
-              with the supplier on your
-              behalf.
-            </p>
-
-            <p
-              dir="rtl"
-              className="mt-4 leading-7 text-slate-500"
-            >
-              أرسل طلبك إلى صحة الأمم،
-              وسنقوم بمراجعته والتنسيق
-              مع المورد نيابةً عنك.
+              {
+                t.needProductsDescription
+              }
             </p>
 
             <a
@@ -671,15 +1470,24 @@ Source: Health Nations Global Marketplace`
               <MessageCircle
                 size={18}
               />
-              Contact Health Nations
+
+              {
+                t.contactHealthNations
+              }
             </a>
           </aside>
         </section>
 
+        {/* STATS */}
+
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StoreStat
-            label="All Products"
-            value={products.length}
+            label={
+              t.allProducts
+            }
+            value={
+              products.length
+            }
             icon={
               <Package
                 size={21}
@@ -688,7 +1496,9 @@ Source: Health Nations Global Marketplace`
           />
 
           <StoreStat
-            label="Equipment"
+            label={
+              t.equipment
+            }
             value={
               equipmentCount
             }
@@ -700,7 +1510,9 @@ Source: Health Nations Global Marketplace`
           />
 
           <StoreStat
-            label="Consumables"
+            label={
+              t.consumables
+            }
             value={
               consumablesCount
             }
@@ -712,7 +1524,9 @@ Source: Health Nations Global Marketplace`
           />
 
           <StoreStat
-            label="Spare Parts"
+            label={
+              t.spareParts
+            }
             value={
               sparePartsCount
             }
@@ -724,29 +1538,34 @@ Source: Health Nations Global Marketplace`
           />
         </section>
 
+        {/* CATALOG */}
+
         <section className="mt-8">
           <div className="rounded-3xl bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <p className="text-sm font-bold uppercase tracking-wider text-blue-700">
-                  Product Catalog
+                  {
+                    t.productCatalog
+                  }
                 </p>
 
                 <h2 className="mt-1 text-3xl font-black">
-                  Store Products
+                  {
+                    t.storeProducts
+                  }
                 </h2>
 
                 <p className="mt-2 text-slate-500">
                   {
                     filteredProducts.length
                   }{" "}
-                  of{" "}
+                  {t.of}{" "}
                   {products.length}{" "}
-                  approved product
                   {products.length ===
                   1
-                    ? ""
-                    : "s"}
+                    ? t.approvedProduct
+                    : t.approvedProducts}
                 </p>
               </div>
 
@@ -754,7 +1573,11 @@ Source: Health Nations Global Marketplace`
                 <label className="relative block">
                   <Search
                     size={19}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                    className={`absolute top-1/2 -translate-y-1/2 text-slate-400 ${
+                      isArabic
+                        ? "right-4"
+                        : "left-4"
+                    }`}
                   />
 
                   <input
@@ -767,8 +1590,14 @@ Source: Health Nations Global Marketplace`
                           .value
                       )
                     }
-                    placeholder="Product, Part Number, Device..."
-                    className="w-full rounded-2xl border border-slate-200 py-3 pl-12 pr-4 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
+                    placeholder={
+                      t.searchPlaceholder
+                    }
+                    className={`w-full rounded-2xl border border-slate-200 py-3 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100 ${
+                      isArabic
+                        ? "pl-4 pr-12"
+                        : "pl-12 pr-4"
+                    }`}
                   />
                 </label>
 
@@ -787,19 +1616,27 @@ Source: Health Nations Global Marketplace`
                   className="rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
                 >
                   <option value="all">
-                    All Product Types
+                    {
+                      t.allProductTypes
+                    }
                   </option>
 
                   <option value="equipment">
-                    Medical Equipment
+                    {
+                      t.medicalEquipment
+                    }
                   </option>
 
                   <option value="consumable">
-                    Consumables
+                    {
+                      t.consumables
+                    }
                   </option>
 
                   <option value="spare_part">
-                    Spare Parts
+                    {
+                      t.spareParts
+                    }
                   </option>
                 </select>
 
@@ -818,7 +1655,9 @@ Source: Health Nations Global Marketplace`
                   className="rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
                 >
                   <option value="all">
-                    All Categories
+                    {
+                      t.allCategories
+                    }
                   </option>
 
                   {categories.map(
@@ -840,6 +1679,8 @@ Source: Health Nations Global Marketplace`
             </div>
           </div>
 
+          {/* EMPTY */}
+
           {filteredProducts.length ===
           0 ? (
             <div className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-3xl bg-white p-8 text-center shadow-sm">
@@ -857,14 +1698,15 @@ Source: Health Nations Global Marketplace`
               </div>
 
               <h3 className="mt-5 text-2xl font-black">
-                No products found
+                {
+                  t.noProductsFound
+                }
               </h3>
 
               <p className="mt-2 max-w-lg text-slate-500">
-                There are currently
-                no approved products
-                matching your search
-                and filters.
+                {
+                  t.noProductsDescription
+                }
               </p>
 
               <button
@@ -880,7 +1722,9 @@ Source: Health Nations Global Marketplace`
                 }}
                 className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white"
               >
-                Clear Filters
+                {
+                  t.clearFilters
+                }
               </button>
             </div>
           ) : (
@@ -897,6 +1741,13 @@ Source: Health Nations Global Marketplace`
                     supplier={
                       supplier
                     }
+                    language={
+                      language
+                    }
+                    isArabic={
+                      isArabic
+                    }
+                    t={t}
                   />
                 )
               )}
@@ -911,9 +1762,15 @@ Source: Health Nations Global Marketplace`
 function ProductCard({
   product,
   supplier,
+  language,
+  isArabic,
+  t,
 }: {
   product: Product;
   supplier: SupplierProfile;
+  language: Language;
+  isArabic: boolean;
+  t: Translation;
 }) {
   const productKind =
     getEffectiveProductKind(
@@ -926,8 +1783,31 @@ function ProductCard({
 
   const condition =
     formatCondition(
-      product.part_condition
+      product.part_condition,
+      t
     );
+
+  const productName =
+    language === "ar"
+      ? product.name_ar ||
+        product.name_en ||
+        t.medicalProduct
+      : product.name_en ||
+        product.name_ar ||
+        t.medicalProduct;
+
+  const secondaryProductName =
+    language === "ar"
+      ? product.name_en
+      : product.name_ar;
+
+  const supplierName =
+    language === "ar"
+      ? supplier.company_name_ar ||
+        supplier.company_name_en
+      : supplier.company_name_en ||
+        supplier.company_name_ar ||
+        t.supplier;
 
   const whatsappUrl =
     createWhatsAppUrl(
@@ -935,7 +1815,7 @@ function ProductCard({
       sparePart
         ? `استفسار عن قطعة غيار من متجر مورد على منصة صحة الأمم
 
-قطعة الغيار: ${product.name_en}
+قطعة الغيار: ${productName}
 رقم المنتج: ${product.id}
 Part Number: ${product.part_number || "غير محدد"}
 Manufacturer: ${product.manufacturer || product.brand || "غير محدد"}
@@ -943,13 +1823,13 @@ Compatible Device: ${product.compatible_device || "غير محدد"}
 Compatible Model: ${product.model || "غير محدد"}
 Condition: ${condition || "غير محدد"}
 
-المورد: ${supplier.company_name_en}
+المورد: ${supplierName}
 دولة المورد: ${supplier.country || "غير محدد"}
 
 أرغب في معرفة السعر والتوفر.
 
 Medical Spare Part Inquiry
-Product: ${product.name_en}
+Product: ${productName}
 Product ID: ${product.id}
 Part Number: ${product.part_number || "Not specified"}
 Manufacturer: ${product.manufacturer || product.brand || "Not specified"}
@@ -960,9 +1840,9 @@ Supplier Country: ${supplier.country || "Not specified"}
 Source: Health Nations Supplier Store`
         : `استفسار عن منتج من متجر مورد على منصة صحة الأمم
 
-المنتج: ${product.name_en}
+المنتج: ${productName}
 رقم المنتج: ${product.id}
-المورد: ${supplier.company_name_en}
+المورد: ${supplierName}
 دولة المورد: ${supplier.country || "غير محدد"}
 Brand: ${product.brand || "غير محدد"}
 Model: ${product.model || "غير محدد"}
@@ -970,7 +1850,7 @@ Model: ${product.model || "غير محدد"}
 أرغب في معرفة السعر والتوفر والتفاصيل.
 
 Product Inquiry
-Product: ${product.name_en}
+Product: ${productName}
 Product ID: ${product.id}
 Supplier: ${supplier.company_name_en}
 Supplier Country: ${supplier.country || "Not specified"}
@@ -990,7 +1870,7 @@ Source: Health Nations Supplier Store`
                 product.image_url
               }
               alt={
-                product.name_en
+                productName
               }
               className="h-full w-full object-cover transition duration-300 hover:scale-105"
             />
@@ -1006,10 +1886,16 @@ Source: Health Nations Supplier Store`
             />
           )}
 
-          <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
+          <div
+            className={`absolute top-4 flex flex-col items-start gap-2 ${
+              isArabic
+                ? "right-4"
+                : "left-4"
+            }`}
+          >
             {product.featured && (
               <span className="rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-slate-950">
-                Featured
+                {t.featured}
               </span>
             )}
 
@@ -1017,11 +1903,16 @@ Source: Health Nations Supplier Store`
               kind={
                 productKind
               }
+              t={t}
             />
           </div>
 
           <span
-            className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold ${
+            className={`absolute top-4 rounded-full px-3 py-1 text-xs font-bold ${
+              isArabic
+                ? "left-4"
+                : "right-4"
+            } ${
               (product.stock ??
                 0) > 0
                 ? "bg-emerald-100 text-emerald-800"
@@ -1030,8 +1921,8 @@ Source: Health Nations Supplier Store`
           >
             {(product.stock ??
               0) > 0
-              ? "In Stock"
-              : "Out of Stock"}
+              ? t.inStock
+              : t.outOfStock}
           </span>
         </div>
       </Link>
@@ -1039,7 +1930,7 @@ Source: Health Nations Supplier Store`
       <div className="p-6">
         <p className="text-xs font-bold uppercase tracking-wider text-blue-700">
           {product.category ||
-            "Medical Product"}
+            t.medicalProduct}
         </p>
 
         <Link
@@ -1047,28 +1938,34 @@ Source: Health Nations Supplier Store`
           className="block"
         >
           <h3 className="mt-2 text-xl font-black transition hover:text-blue-700">
-            {
-              product.name_en
-            }
+            {productName}
           </h3>
         </Link>
 
-        {product.name_ar && (
-          <p
-            className="mt-1 text-slate-500"
-            dir="rtl"
-          >
-            {
-              product.name_ar
-            }
-          </p>
-        )}
+        {secondaryProductName &&
+          secondaryProductName !==
+            productName && (
+            <p
+              className="mt-1 text-slate-500"
+              dir={
+                language === "ar"
+                  ? "ltr"
+                  : "rtl"
+              }
+            >
+              {
+                secondaryProductName
+              }
+            </p>
+          )}
 
         {sparePart ? (
           <div className="mt-4 space-y-2 rounded-2xl border border-amber-100 bg-amber-50 p-4">
             {product.part_number && (
               <ProductMeta
-                label="Part No."
+                label={
+                  t.partNumber
+                }
                 value={
                   product.part_number
                 }
@@ -1078,7 +1975,9 @@ Source: Health Nations Supplier Store`
             {(product.manufacturer ||
               product.brand) && (
               <ProductMeta
-                label="Manufacturer"
+                label={
+                  t.manufacturer
+                }
                 value={
                   product.manufacturer ||
                   product.brand ||
@@ -1089,7 +1988,9 @@ Source: Health Nations Supplier Store`
 
             {product.compatible_device && (
               <ProductMeta
-                label="Compatible"
+                label={
+                  t.compatible
+                }
                 value={
                   product.compatible_device
                 }
@@ -1098,7 +1999,7 @@ Source: Health Nations Supplier Store`
 
             {product.model && (
               <ProductMeta
-                label="Model"
+                label={t.model}
                 value={
                   product.model
                 }
@@ -1107,7 +2008,9 @@ Source: Health Nations Supplier Store`
 
             {condition && (
               <ProductMeta
-                label="Condition"
+                label={
+                  t.condition
+                }
                 value={
                   condition
                 }
@@ -1122,7 +2025,7 @@ Source: Health Nations Supplier Store`
             ]
               .filter(Boolean)
               .join(" • ") ||
-              "Brand information unavailable"}
+              t.brandUnavailable}
           </p>
         )}
 
@@ -1133,15 +2036,15 @@ Source: Health Nations Supplier Store`
               null ? (
               <>
                 <p className="text-xs font-bold uppercase text-slate-400">
-                  Sale Price
+                  {t.salePrice}
                 </p>
 
                 <p className="mt-1 text-2xl font-black text-blue-700">
-                  {Number(
-                    product.sale_price
-                  ).toLocaleString()}{" "}
-                  {product.currency ||
-                    ""}
+                  {formatPrice(
+                    product.sale_price,
+                    product.currency,
+                    language
+                  )}
                 </p>
               </>
             ) : product.available_for_rental &&
@@ -1149,20 +2052,24 @@ Source: Health Nations Supplier Store`
                 null ? (
               <>
                 <p className="text-xs font-bold uppercase text-slate-400">
-                  Monthly Rental
+                  {
+                    t.monthlyRental
+                  }
                 </p>
 
                 <p className="mt-1 text-2xl font-black text-blue-700">
-                  {Number(
-                    product.monthly_rental_price
-                  ).toLocaleString()}{" "}
-                  {product.currency ||
-                    ""}
+                  {formatPrice(
+                    product.monthly_rental_price,
+                    product.currency,
+                    language
+                  )}
                 </p>
               </>
             ) : (
               <p className="text-lg font-black text-blue-700">
-                Contact for price
+                {
+                  t.contactForPrice
+                }
               </p>
             )}
           </div>
@@ -1171,6 +2078,7 @@ Source: Health Nations Supplier Store`
             <Boxes
               size={17}
             />
+
             {product.stock ??
               0}
           </div>
@@ -1181,9 +2089,17 @@ Source: Health Nations Supplier Store`
             href={`/store/product/${product.id}`}
             className="flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 font-bold text-white transition hover:bg-blue-800"
           >
-            View Product Details
+            {
+              t.viewProductDetails
+            }
+
             <ChevronRight
               size={18}
+              className={
+                isArabic
+                  ? "rotate-180"
+                  : ""
+              }
             />
           </Link>
 
@@ -1198,8 +2114,8 @@ Source: Health Nations Supplier Store`
             />
 
             {sparePart
-              ? "Request Spare Part"
-              : "Contact Health Nations"}
+              ? t.requestSparePart
+              : t.contactHealthNations}
           </a>
         </div>
       </div>
@@ -1239,8 +2155,10 @@ function StoreStat({
 
 function ProductKindBadge({
   kind,
+  t,
 }: {
   kind: ProductKind;
+  t: Translation;
 }) {
   const styles: Record<
     ProductKind,
@@ -1258,9 +2176,14 @@ function ProductKindBadge({
     ProductKind,
     string
   > = {
-    equipment: "Equipment",
-    consumable: "Consumable",
-    spare_part: "Spare Part",
+    equipment:
+      t.equipment,
+
+    consumable:
+      t.consumable,
+
+    spare_part:
+      t.sparePart,
   };
 
   return (
@@ -1285,7 +2208,7 @@ function ProductMeta({
         {label}
       </span>
 
-      <strong className="break-words text-right text-slate-900">
+      <strong className="break-words text-end text-slate-900">
         {value}
       </strong>
     </div>
@@ -1350,23 +2273,54 @@ function isLegacySparePart(
 }
 
 function formatCondition(
-  value: PartCondition | null
+  value: PartCondition | null,
+  t: Translation
 ) {
   if (value === "new") {
-    return "New";
+    return t.conditionNew;
   }
 
   if (
     value === "refurbished"
   ) {
-    return "Refurbished";
+    return t.conditionRefurbished;
   }
 
   if (value === "used") {
-    return "Used";
+    return t.conditionUsed;
   }
 
   return "";
+}
+
+function formatPrice(
+  value: number,
+  currency: string | null,
+  language: Language
+) {
+  const locale =
+    language === "ar"
+      ? "ar-SA"
+      : language === "zh"
+        ? "zh-CN"
+        : language === "tr"
+          ? "tr-TR"
+          : "en-US";
+
+  try {
+    return `${new Intl.NumberFormat(
+      locale,
+      {
+        maximumFractionDigits: 2,
+      }
+    ).format(Number(value))} ${
+      currency || ""
+    }`;
+  } catch {
+    return `${value} ${
+      currency || ""
+    }`;
+  }
 }
 
 function formatSupplierType(

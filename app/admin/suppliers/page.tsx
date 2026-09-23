@@ -85,13 +85,39 @@ type SupplierWithStats =
     pendingProducts: number;
   };
 
+type SupplierActionResponse = {
+  success?: boolean;
+
+  error?: string;
+
+  supplierId?: string;
+
+  action?:
+    | "approve"
+    | "reject";
+
+  supplier?: {
+    status?: string;
+    verified?: boolean;
+    approved_at?: string | null;
+  };
+
+  vendor?: {
+    account_status?: string;
+    is_verified?: boolean;
+    can_publish_products?: boolean;
+  } | null;
+
+  message?: string;
+};
+
 /* =========================================================
    HELPERS
 ========================================================= */
 
 function getErrorMessage(
   error: unknown
-) {
+): string {
   if (error instanceof Error) {
     return error.message;
   }
@@ -142,8 +168,10 @@ function formatSupplierType(
 
   return value
     .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase()
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase()
     );
 }
 
@@ -154,7 +182,8 @@ function formatDate(
     return "-";
   }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
   if (
     Number.isNaN(
@@ -179,259 +208,309 @@ function formatDate(
 ========================================================= */
 
 export default function AdminSuppliersPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const [
     accessState,
     setAccessState,
-  ] = useState<AccessState>(
-    "checking"
-  );
+  ] =
+    useState<AccessState>(
+      "checking"
+    );
 
   const [
     suppliers,
     setSuppliers,
-  ] = useState<
-    SupplierWithStats[]
-  >([]);
+  ] =
+    useState<
+      SupplierWithStats[]
+    >([]);
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     errorMessage,
     setErrorMessage,
-  ] = useState("");
+  ] =
+    useState("");
+
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] =
+    useState("");
 
   const [
     search,
     setSearch,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     statusFilter,
     setStatusFilter,
-  ] = useState("all");
+  ] =
+    useState("all");
 
   const [
     actionSupplierId,
     setActionSupplierId,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(null);
 
   /* =======================================================
      ADMIN ACCESS
   ======================================================= */
 
   const checkAdminAccess =
-    useCallback(async () => {
-      try {
-        setAccessState(
-          "checking"
-        );
-
-        const {
-          data: { user },
-          error: userError,
-        } =
-          await supabase.auth.getUser();
-
-        if (
-          userError ||
-          !user
-        ) {
-          router.replace(
-            "/login"
+    useCallback(
+      async () => {
+        try {
+          setAccessState(
+            "checking"
           );
 
-          return false;
-        }
+          const {
+            data: {
+              user,
+            },
+            error:
+              userError,
+          } =
+            await supabase.auth.getUser();
 
-        const {
-          data: adminRecord,
-          error: adminError,
-        } = await supabase
-          .from("admin_users")
-          .select("user_id")
-          .eq(
-            "user_id",
-            user.id
-          )
-          .maybeSingle();
+          if (
+            userError ||
+            !user
+          ) {
+            router.replace(
+              "/login"
+            );
 
-        if (adminError) {
-          throw adminError;
-        }
+            return false;
+          }
 
-        if (!adminRecord) {
+          const {
+            data:
+              adminRecord,
+            error:
+              adminError,
+          } =
+            await supabase
+              .from(
+                "admin_users"
+              )
+              .select(
+                "user_id"
+              )
+              .eq(
+                "user_id",
+                user.id
+              )
+              .maybeSingle();
+
+          if (adminError) {
+            throw adminError;
+          }
+
+          if (
+            !adminRecord
+          ) {
+            setAccessState(
+              "denied"
+            );
+
+            return false;
+          }
+
+          setAccessState(
+            "allowed"
+          );
+
+          return true;
+        } catch (
+          error: unknown
+        ) {
+          console.error(
+            "Admin access error:",
+            error
+          );
+
           setAccessState(
             "denied"
           );
 
           return false;
         }
-
-        setAccessState(
-          "allowed"
-        );
-
-        return true;
-      } catch (
-        error: unknown
-      ) {
-        console.error(
-          "Admin access error:",
-          error
-        );
-
-        setAccessState(
-          "denied"
-        );
-
-        return false;
-      }
-    }, [router]);
+      },
+      [router]
+    );
 
   /* =======================================================
      LOAD SUPPLIERS
   ======================================================= */
 
   const loadSuppliers =
-    useCallback(async () => {
-      try {
-        setLoading(true);
-        setErrorMessage("");
-
-        const [
-          suppliersResult,
-          productsResult,
-        ] =
-          await Promise.all([
-            supabase
-              .from(
-                "supplier_profiles"
-              )
-              .select(`
-                user_id,
-                company_name_en,
-                company_name_ar,
-                slug,
-                contact_name,
-                email,
-                phone,
-                country,
-                city,
-                address,
-                supplier_type,
-                description_en,
-                description_ar,
-                logo_url,
-                cover_url,
-                website_url,
-                alibaba_url,
-                categories,
-                status,
-                verified,
-                created_at,
-                updated_at,
-                approved_at
-              `)
-              .order(
-                "created_at",
-                {
-                  ascending: false,
-                }
-              ),
-
-            supabase
-              .from(
-                "supplier_products"
-              )
-              .select(`
-                id,
-                supplier_id,
-                status
-              `),
-          ]);
-
-        if (
-          suppliersResult.error
-        ) {
-          throw suppliersResult.error;
-        }
-
-        if (
-          productsResult.error
-        ) {
-          throw productsResult.error;
-        }
-
-        const supplierRows =
-          (suppliersResult.data ??
-            []) as SupplierProfile[];
-
-        const productRows =
-          (productsResult.data ??
-            []) as SupplierProduct[];
-
-        const merged =
-          supplierRows.map(
-            (supplier) => {
-              const supplierProducts =
-                productRows.filter(
-                  (product) =>
-                    product.supplier_id ===
-                    supplier.user_id
-                );
-
-              return {
-                ...supplier,
-
-                totalProducts:
-                  supplierProducts.length,
-
-                approvedProducts:
-                  supplierProducts.filter(
-                    (product) =>
-                      product.status ===
-                      "approved"
-                  ).length,
-
-                pendingProducts:
-                  supplierProducts.filter(
-                    (product) =>
-                      product.status ===
-                      "pending"
-                  ).length,
-              };
-            }
+    useCallback(
+      async () => {
+        try {
+          setLoading(
+            true
           );
 
-        setSuppliers(
-          merged
-        );
-      } catch (
-        error: unknown
-      ) {
-        console.error(
-          "Suppliers loading error:",
-          error
-        );
+          setErrorMessage(
+            ""
+          );
 
-        setErrorMessage(
-          getErrorMessage(
+          const [
+            suppliersResult,
+            productsResult,
+          ] =
+            await Promise.all([
+              supabase
+                .from(
+                  "supplier_profiles"
+                )
+                .select(`
+                  user_id,
+                  company_name_en,
+                  company_name_ar,
+                  slug,
+                  contact_name,
+                  email,
+                  phone,
+                  country,
+                  city,
+                  address,
+                  supplier_type,
+                  description_en,
+                  description_ar,
+                  logo_url,
+                  cover_url,
+                  website_url,
+                  alibaba_url,
+                  categories,
+                  status,
+                  verified,
+                  created_at,
+                  updated_at,
+                  approved_at
+                `)
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                ),
+
+              supabase
+                .from(
+                  "supplier_products"
+                )
+                .select(`
+                  id,
+                  supplier_id,
+                  status
+                `),
+            ]);
+
+          if (
+            suppliersResult.error
+          ) {
+            throw suppliersResult.error;
+          }
+
+          if (
+            productsResult.error
+          ) {
+            throw productsResult.error;
+          }
+
+          const supplierRows =
+            (suppliersResult.data ??
+              []) as SupplierProfile[];
+
+          const productRows =
+            (productsResult.data ??
+              []) as SupplierProduct[];
+
+          const merged =
+            supplierRows.map(
+              (
+                supplier
+              ) => {
+                const supplierProducts =
+                  productRows.filter(
+                    (
+                      product
+                    ) =>
+                      product.supplier_id ===
+                      supplier.user_id
+                  );
+
+                return {
+                  ...supplier,
+
+                  totalProducts:
+                    supplierProducts.length,
+
+                  approvedProducts:
+                    supplierProducts.filter(
+                      (
+                        product
+                      ) =>
+                        product.status ===
+                        "approved"
+                    ).length,
+
+                  pendingProducts:
+                    supplierProducts.filter(
+                      (
+                        product
+                      ) =>
+                        product.status ===
+                        "pending"
+                    ).length,
+                };
+              }
+            );
+
+          setSuppliers(
+            merged
+          );
+        } catch (
+          error: unknown
+        ) {
+          console.error(
+            "Suppliers loading error:",
             error
-          )
-        );
+          );
 
-        setSuppliers([]);
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+          setErrorMessage(
+            getErrorMessage(
+              error
+            )
+          );
+
+          setSuppliers(
+            []
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      []
+    );
 
   /* =======================================================
      INITIAL LOAD
@@ -439,18 +518,25 @@ export default function AdminSuppliersPage() {
 
   useEffect(() => {
     const timer =
-      window.setTimeout(() => {
-        void (async () => {
-          const allowed =
-            await checkAdminAccess();
+      window.setTimeout(
+        () => {
+          void (async () => {
+            const allowed =
+              await checkAdminAccess();
 
-          if (allowed) {
-            await loadSuppliers();
-          } else {
-            setLoading(false);
-          }
-        })();
-      }, 0);
+            if (
+              allowed
+            ) {
+              await loadSuppliers();
+            } else {
+              setLoading(
+                false
+              );
+            }
+          })();
+        },
+        0
+      );
 
     return () => {
       window.clearTimeout(
@@ -470,7 +556,9 @@ export default function AdminSuppliersPage() {
     useMemo(
       () =>
         suppliers.filter(
-          (supplier) =>
+          (
+            supplier
+          ) =>
             supplier.status ===
             "approved"
         ).length,
@@ -481,7 +569,9 @@ export default function AdminSuppliersPage() {
     useMemo(
       () =>
         suppliers.filter(
-          (supplier) =>
+          (
+            supplier
+          ) =>
             supplier.status ===
             "pending"
         ).length,
@@ -492,7 +582,9 @@ export default function AdminSuppliersPage() {
     useMemo(
       () =>
         suppliers.filter(
-          (supplier) =>
+          (
+            supplier
+          ) =>
             supplier.status ===
             "rejected"
         ).length,
@@ -503,7 +595,9 @@ export default function AdminSuppliersPage() {
     useMemo(
       () =>
         suppliers.filter(
-          (supplier) =>
+          (
+            supplier
+          ) =>
             supplier.verified ===
             true
         ).length,
@@ -511,137 +605,279 @@ export default function AdminSuppliersPage() {
     );
 
   const countryCount =
-    useMemo(() => {
-      const countries =
-        suppliers
-          .map(
-            (supplier) =>
-              supplier.country?.trim()
-          )
-          .filter(
-            (
-              value
-            ): value is string =>
-              Boolean(value)
-          );
+    useMemo(
+      () => {
+        const countries =
+          suppliers
+            .map(
+              (
+                supplier
+              ) =>
+                supplier.country?.trim()
+            )
+            .filter(
+              (
+                value
+              ): value is string =>
+                Boolean(
+                  value
+                )
+            );
 
-      return new Set(
-        countries
-      ).size;
-    }, [suppliers]);
+        return new Set(
+          countries
+        ).size;
+      },
+      [suppliers]
+    );
 
   /* =======================================================
      FILTER
   ======================================================= */
 
   const filteredSuppliers =
-    useMemo(() => {
-      const query =
-        search
-          .trim()
-          .toLowerCase();
-
-      return suppliers.filter(
-        (supplier) => {
-          if (
-            statusFilter !==
-              "all" &&
-            supplier.status !==
-              statusFilter
-          ) {
-            return false;
-          }
-
-          if (!query) {
-            return true;
-          }
-
-          const text = [
-            supplier.company_name_en,
-            supplier.company_name_ar,
-            supplier.contact_name,
-            supplier.email,
-            supplier.phone,
-            supplier.country,
-            supplier.city,
-            supplier.supplier_type,
-          ]
-            .filter(
-              (
-                value
-              ): value is string =>
-                typeof value ===
-                "string"
-            )
-            .join(" ")
+    useMemo(
+      () => {
+        const query =
+          search
+            .trim()
             .toLowerCase();
 
-          return text.includes(
-            query
-          );
-        }
-      );
-    }, [
-      suppliers,
-      search,
-      statusFilter,
-    ]);
+        return suppliers.filter(
+          (
+            supplier
+          ) => {
+            if (
+              statusFilter !==
+                "all" &&
+              supplier.status !==
+                statusFilter
+            ) {
+              return false;
+            }
+
+            if (!query) {
+              return true;
+            }
+
+            const text = [
+              supplier.company_name_en,
+              supplier.company_name_ar,
+              supplier.contact_name,
+              supplier.email,
+              supplier.phone,
+              supplier.country,
+              supplier.city,
+              supplier.supplier_type,
+            ]
+              .filter(
+                (
+                  value
+                ): value is string =>
+                  typeof value ===
+                  "string"
+              )
+              .join(
+                " "
+              )
+              .toLowerCase();
+
+            return text.includes(
+              query
+            );
+          }
+        );
+      },
+      [
+        suppliers,
+        search,
+        statusFilter,
+      ]
+    );
 
   /* =======================================================
-     UPDATE SUPPLIER
+     SUPPLIER ACTION API
   ======================================================= */
 
-  const updateSupplier =
+  const runSupplierAction =
     async (
       supplierId: string,
-      changes: {
-        status?: string;
-        verified?: boolean;
-        approved_at?:
-          | string
-          | null;
-      }
+      action:
+        | "approve"
+        | "reject"
     ) => {
       try {
         setActionSupplierId(
           supplierId
         );
 
-        setErrorMessage("");
+        setErrorMessage(
+          ""
+        );
 
-        const { error } =
-          await supabase
-            .from(
-              "supplier_profiles"
-            )
-            .update(changes)
-            .eq(
-              "user_id",
-              supplierId
-            );
+        setSuccessMessage(
+          ""
+        );
 
-        if (error) {
-          throw error;
+        /*
+         * Get the current Supabase
+         * access token.
+         */
+        const {
+          data: sessionData,
+          error:
+            sessionError,
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          sessionError
+        ) {
+          throw sessionError;
         }
 
+        const accessToken =
+          sessionData.session
+            ?.access_token;
+
+        if (
+          !accessToken
+        ) {
+          router.replace(
+            "/login"
+          );
+
+          return;
+        }
+
+        /*
+         * Call secure server API.
+         */
+        const response =
+          await fetch(
+            "/api/admin/suppliers/update-status",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${accessToken}`,
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    supplierId,
+                    action,
+                  }
+                ),
+            }
+          );
+
+        let result:
+          SupplierActionResponse;
+
+        try {
+          result =
+            (await response.json()) as SupplierActionResponse;
+        } catch {
+          throw new Error(
+            "Invalid response from supplier status API."
+          );
+        }
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.error ||
+              "Supplier update failed."
+          );
+        }
+
+        /*
+         * Update the local dashboard
+         * immediately.
+         */
         setSuppliers(
-          (current) =>
+          (
+            current
+          ) =>
             current.map(
-              (supplier) =>
-                supplier.user_id ===
-                supplierId
-                  ? {
-                      ...supplier,
-                      ...changes,
-                    }
-                  : supplier
+              (
+                supplier
+              ) => {
+                if (
+                  supplier.user_id !==
+                  supplierId
+                ) {
+                  return supplier;
+                }
+
+                if (
+                  action ===
+                  "approve"
+                ) {
+                  return {
+                    ...supplier,
+
+                    status:
+                      "approved",
+
+                    verified:
+                      true,
+
+                    approved_at:
+                      result.supplier
+                        ?.approved_at ||
+                      new Date().toISOString(),
+                  };
+                }
+
+                return {
+                  ...supplier,
+
+                  status:
+                    "rejected",
+
+                  verified:
+                    false,
+
+                  approved_at:
+                    null,
+                };
+              }
             )
         );
+
+        if (
+          action ===
+          "approve"
+        ) {
+          setSuccessMessage(
+            "تم اعتماد المورد وتفعيل حساب البائع والسماح له بنشر المنتجات بنجاح."
+          );
+        } else {
+          setSuccessMessage(
+            "تم رفض المورد وتعطيل صلاحية نشر المنتجات."
+          );
+        }
+
+        /*
+         * Reload from Supabase
+         * to verify persisted state.
+         */
+        await loadSuppliers();
       } catch (
         error: unknown
       ) {
         console.error(
-          "Supplier update error:",
+          "Supplier action error:",
           error
         );
 
@@ -658,39 +894,22 @@ export default function AdminSuppliersPage() {
     };
 
   const approveSupplier =
-    (supplierId: string) => {
-      void updateSupplier(
+    (
+      supplierId: string
+    ) => {
+      void runSupplierAction(
         supplierId,
-        {
-          status: "approved",
-          approved_at:
-            new Date().toISOString(),
-        }
+        "approve"
       );
     };
 
   const rejectSupplier =
-    (supplierId: string) => {
-      void updateSupplier(
-        supplierId,
-        {
-          status: "rejected",
-          verified: false,
-          approved_at: null,
-        }
-      );
-    };
-
-  const toggleVerified =
     (
-      supplier: SupplierWithStats
+      supplierId: string
     ) => {
-      void updateSupplier(
-        supplier.user_id,
-        {
-          verified:
-            !supplier.verified,
-        }
+      void runSupplierAction(
+        supplierId,
+        "reject"
       );
     };
 
@@ -711,8 +930,7 @@ export default function AdminSuppliersPage() {
           />
 
           <h1 className="mt-5 text-xl font-black text-slate-900">
-            جاري التحقق من
-            صلاحية الإدارة...
+            جاري التحقق من صلاحية الإدارة...
           </h1>
 
           <p className="mt-2 text-slate-500">
@@ -745,8 +963,7 @@ export default function AdminSuppliersPage() {
           </h1>
 
           <p className="mt-3 text-slate-500">
-            هذا الحساب غير مصرح
-            له بإدارة الموردين.
+            هذا الحساب غير مصرح له بإدارة الموردين.
           </p>
 
           <Link
@@ -784,6 +1001,7 @@ export default function AdminSuppliersPage() {
                   <Globe2
                     size={14}
                   />
+
                   Global Suppliers
                 </span>
               </div>
@@ -793,9 +1011,7 @@ export default function AdminSuppliersPage() {
               </h1>
 
               <p className="mt-3 max-w-2xl leading-7 text-slate-300">
-                مراجعة واعتماد وإدارة
-                الموردين المسجلين في
-                منصة Health Nations.
+                مراجعة واعتماد وإدارة الموردين المسجلين في منصة Health Nations.
               </p>
             </div>
 
@@ -807,6 +1023,7 @@ export default function AdminSuppliersPage() {
                 <ChevronLeft
                   size={18}
                 />
+
                 لوحة الإدارة
               </Link>
 
@@ -815,7 +1032,9 @@ export default function AdminSuppliersPage() {
                 onClick={() =>
                   void loadSuppliers()
                 }
-                disabled={loading}
+                disabled={
+                  loading
+                }
                 className="inline-flex items-center gap-2 rounded-2xl bg-teal-500 px-5 py-3 font-bold text-white transition hover:bg-teal-400 disabled:opacity-50"
               >
                 <RefreshCw
@@ -842,6 +1061,18 @@ export default function AdminSuppliersPage() {
           </div>
         )}
 
+        {/* SUCCESS */}
+
+        {successMessage && (
+          <div className="mt-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 font-bold text-emerald-700">
+            <CheckCircle2
+              size={20}
+            />
+
+            {successMessage}
+          </div>
+        )}
+
         {/* STATS */}
 
         <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -865,7 +1096,8 @@ export default function AdminSuppliersPage() {
               pendingCount
             }
             attention={
-              pendingCount > 0
+              pendingCount >
+              0
             }
           />
 
@@ -903,7 +1135,9 @@ export default function AdminSuppliersPage() {
 
               <input
                 type="text"
-                value={search}
+                value={
+                  search
+                }
                 onChange={(
                   event
                 ) =>
@@ -959,8 +1193,7 @@ export default function AdminSuppliersPage() {
               />
 
               <p className="mt-4 text-slate-500">
-                جاري تحميل
-                الموردين...
+                جاري تحميل الموردين...
               </p>
             </div>
           ) : filteredSuppliers.length ===
@@ -976,14 +1209,15 @@ export default function AdminSuppliersPage() {
               </h2>
 
               <p className="mt-2 text-slate-500">
-                لا توجد نتائج مطابقة
-                للفلاتر الحالية.
+                لا توجد نتائج مطابقة للفلاتر الحالية.
               </p>
             </div>
           ) : (
             <div className="grid gap-5 xl:grid-cols-2">
               {filteredSuppliers.map(
-                (supplier) => (
+                (
+                  supplier
+                ) => (
                   <SupplierCard
                     key={
                       supplier.user_id
@@ -1003,11 +1237,6 @@ export default function AdminSuppliersPage() {
                     onReject={() =>
                       rejectSupplier(
                         supplier.user_id
-                      )
-                    }
-                    onToggleVerified={() =>
-                      toggleVerified(
-                        supplier
                       )
                     }
                   />
@@ -1030,13 +1259,11 @@ function SupplierCard({
   busy,
   onApprove,
   onReject,
-  onToggleVerified,
 }: {
   supplier: SupplierWithStats;
   busy: boolean;
   onApprove: () => void;
   onReject: () => void;
-  onToggleVerified: () => void;
 }) {
   const supplierName =
     getSupplierName(
@@ -1048,6 +1275,7 @@ function SupplierCard({
       <div className="flex items-start gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
           {supplier.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={
                 supplier.logo_url
@@ -1103,6 +1331,8 @@ function SupplierCard({
           </div>
         </div>
       </div>
+
+      {/* INFORMATION */}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <InfoItem
@@ -1179,11 +1409,13 @@ function SupplierCard({
           "approved" && (
           <button
             type="button"
-            disabled={busy}
+            disabled={
+              busy
+            }
             onClick={
               onApprove
             }
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <RefreshCw
@@ -1196,7 +1428,7 @@ function SupplierCard({
               />
             )}
 
-            Approve
+            Approve & Activate
           </button>
         )}
 
@@ -1204,15 +1436,24 @@ function SupplierCard({
           "rejected" && (
           <button
             type="button"
-            disabled={busy}
+            disabled={
+              busy
+            }
             onClick={
               onReject
             }
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <XCircle
-              size={17}
-            />
+            {busy ? (
+              <RefreshCw
+                size={17}
+                className="animate-spin"
+              />
+            ) : (
+              <XCircle
+                size={17}
+              />
+            )}
 
             Reject
           </button>
@@ -1220,26 +1461,13 @@ function SupplierCard({
 
         {supplier.status ===
           "approved" && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={
-              onToggleVerified
-            }
-            className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold transition disabled:opacity-50 ${
-              supplier.verified
-                ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
+          <div className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 font-bold text-emerald-700">
             <CheckCircle2
               size={17}
             />
 
-            {supplier.verified
-              ? "Remove Verification"
-              : "Verify Supplier"}
-          </button>
+            Vendor Activated
+          </div>
         )}
       </div>
 
@@ -1252,6 +1480,7 @@ function SupplierCard({
             <Link
               href={`/store/${supplier.slug}`}
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 font-bold text-blue-700 hover:underline"
             >
               <Store
@@ -1346,6 +1575,7 @@ function InfoItem({
     <div className="rounded-2xl bg-slate-50 p-4">
       <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
         {icon}
+
         {label}
       </div>
 
