@@ -142,7 +142,13 @@ export default function VendorQuotationsPage() {
   );
 
   useEffect(() => {
-    void loadQuotations();
+    const timer = window.setTimeout(() => {
+      void loadQuotations();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [loadQuotations]);
 
   function formatMoney(amount: number | null, currency: string) {

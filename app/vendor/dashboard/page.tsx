@@ -216,7 +216,13 @@ export default function VendorDashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    void loadVendorDashboard();
+    const timer = window.setTimeout(() => {
+      void loadVendorDashboard();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [loadVendorDashboard]);
 
   async function handleLogout() {

@@ -130,7 +130,13 @@ export default function VendorMessagesPage() {
   );
 
   useEffect(() => {
-    void loadMessages();
+    const timer = window.setTimeout(() => {
+      void loadMessages();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [loadMessages]);
 
   const unreadCount = useMemo(() => {

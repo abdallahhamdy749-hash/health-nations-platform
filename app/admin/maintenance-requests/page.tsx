@@ -773,13 +773,19 @@ function RequestCard({
   );
 
   useEffect(() => {
-    setEngineer(
-      request.assigned_engineer ?? ""
-    );
+    const timer = window.setTimeout(() => {
+      setEngineer(
+        request.assigned_engineer ?? ""
+      );
 
-    setScheduledDate(
-      request.scheduled_date ?? ""
-    );
+      setScheduledDate(
+        request.scheduled_date ?? ""
+      );
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [
     request.assigned_engineer,
     request.scheduled_date,
