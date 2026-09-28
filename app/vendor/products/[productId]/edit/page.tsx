@@ -5,6 +5,7 @@ import {
   FormEvent,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -21,6 +22,7 @@ import {
   Upload,
 } from "lucide-react";
 
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -115,7 +117,9 @@ type ProductRecord = {
 
 const STORAGE_BUCKET = "vendor-assets";
 const CATALOG_FOLDER = "catalogs";
+const PRODUCT_IMAGE_FOLDER = "products";
 const MAX_CATALOG_SIZE = 20 * 1024 * 1024;
+const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const initialForm: ProductForm = {
   productKind: "equipment",
@@ -190,6 +194,9 @@ const currencyOptions = [
 export default function EditVendorProductPage() {
   const router = useRouter();
 
+  const productImageInputRef =
+    useRef<HTMLInputElement | null>(null);
+
   const params = useParams<{
     productId: string;
   }>();
@@ -209,6 +216,9 @@ export default function EditVendorProductPage() {
     useState(false);
 
   const [uploadingCatalog, setUploadingCatalog] =
+    useState(false);
+
+  const [uploadingImage, setUploadingImage] =
     useState(false);
 
   const [errorMessage, setErrorMessage] =
@@ -441,6 +451,122 @@ export default function EditVendorProductPage() {
       ...current,
       [field]: value,
     }));
+  }
+
+  async function handleProductImageUpload(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(
+          "Product image must be JPG, JPEG, PNG or WEBP."
+        );
+      }
+
+      if (file.size > MAX_PRODUCT_IMAGE_SIZE) {
+        throw new Error(
+          "Product image must not exceed 5 MB."
+        );
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw new Error(userError.message);
+      }
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!product || product.supplier_id !== user.id) {
+        throw new Error(
+          "You cannot upload an image for this product."
+        );
+      }
+
+      const fileExtension =
+        file.name.match(/\.(jpe?g|png|webp)$/i)?.[1]?.toLowerCase() ||
+        (file.type === "image/jpeg"
+          ? "jpg"
+          : file.type === "image/png"
+            ? "png"
+            : "webp");
+      const baseName = file.name
+        .replace(/\.[^.]+$/, "")
+        .normalize("NFKD")
+        .replace(/[^\w.-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 80);
+      const safeFileName =
+        `${Date.now()}-${crypto.randomUUID()}-` +
+        `${baseName || "product-image"}.${fileExtension}`;
+      const filePath =
+        `${PRODUCT_IMAGE_FOLDER}/${user.id}/${safeFileName}`;
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            contentType: file.type,
+            upsert: false,
+          });
+
+      if (uploadError) {
+        throw new Error(
+          `Product image upload failed: ${uploadError.message}`
+        );
+      }
+
+      const { data: publicUrlData } =
+        supabase.storage
+          .from(STORAGE_BUCKET)
+          .getPublicUrl(filePath);
+
+      if (!publicUrlData.publicUrl) {
+        throw new Error(
+          "Unable to generate the product image URL."
+        );
+      }
+
+      updateField("imageUrl", publicUrlData.publicUrl);
+    } catch (error: unknown) {
+      setErrorMessage(
+        getErrorMessage(error, "Unable to upload product image.")
+      );
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  function removeProductImage() {
+    updateField("imageUrl", "");
+    if (productImageInputRef.current) {
+      productImageInputRef.current.value = "";
+    }
   }
 
   function handleProductKindChange(
@@ -1647,19 +1773,114 @@ export default function EditVendorProductPage() {
             subtitle="Update public product links."
           >
             <div className="grid gap-5">
-              <TextField
-                label="Product Image URL"
-                value={
-                  form.imageUrl
-                }
-                onChange={(value) =>
-                  updateField(
-                    "imageUrl",
-                    value
-                  )
-                }
-                type="url"
-              />
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 md:p-6">
+                <div className="mb-4">
+                  <h3 className="font-black text-slate-900">
+                    Product Image
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    JPG, PNG or WEBP — maximum 5 MB
+                  </p>
+                </div>
+
+                <input
+                  ref={productImageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  onChange={handleProductImageUpload}
+                  disabled={uploadingImage || saving}
+                  className="hidden"
+                />
+
+                {form.imageUrl ? (
+                  <div className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[220px_1fr] md:items-center">
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                      <Image
+                        src={form.imageUrl}
+                        alt="Product preview"
+                        width={440}
+                        height={384}
+                        unoptimized
+                        className="h-48 w-full object-contain"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-slate-800">
+                        Product image ready
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        The image will be saved with this product.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={uploadingImage || saving}
+                          onClick={() =>
+                            productImageInputRef.current?.click()
+                          }
+                          className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
+                        >
+                          {uploadingImage ? (
+                            <>
+                              <Loader2
+                                size={17}
+                                className="animate-spin"
+                              />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload size={17} />
+                              Change Image
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={uploadingImage || saving}
+                          onClick={removeProductImage}
+                          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-700 disabled:opacity-50"
+                        >
+                          <Trash2 size={17} />
+                          Remove Image
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={uploadingImage || saving}
+                    onClick={() =>
+                      productImageInputRef.current?.click()
+                    }
+                    className="flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white px-5 py-8 text-center transition hover:border-blue-400 hover:bg-blue-50/40 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <Loader2
+                          size={28}
+                          className="animate-spin text-blue-700"
+                        />
+                        <span className="mt-3 font-bold text-slate-800">
+                          Uploading...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={28} className="text-blue-700" />
+                        <span className="mt-3 font-bold text-slate-800">
+                          Upload Product Image
+                        </span>
+                      </>
+                    )}
+                    <span className="mt-2 text-sm text-slate-500">
+                      JPG, PNG or WEBP — maximum 5 MB
+                    </span>
+                  </button>
+                )}
+              </div>
 
               <TextField
                 label="Alibaba URL"
@@ -1682,7 +1903,8 @@ export default function EditVendorProductPage() {
               type="button"
               disabled={
                 saving ||
-                uploadingCatalog
+                uploadingCatalog ||
+                uploadingImage
               }
               onClick={() =>
                 router.push(
@@ -1698,7 +1920,8 @@ export default function EditVendorProductPage() {
               type="submit"
               disabled={
                 saving ||
-                uploadingCatalog
+                uploadingCatalog ||
+                uploadingImage
               }
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-8 py-4 font-bold text-white transition hover:bg-blue-800 disabled:opacity-60"
             >
