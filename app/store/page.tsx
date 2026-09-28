@@ -1861,8 +1861,8 @@ Source: Health Nations Global Marketplace`
       {/* HERO */}
 
       <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white">
-        <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sm:mb-8 sm:gap-4">
             <Link
               href="/"
               className="inline-flex items-center gap-2 font-black text-white"
@@ -1906,18 +1906,18 @@ Source: Health Nations Global Marketplace`
             </div>
           </div>
 
-          <div className="grid gap-10 lg:grid-cols-[1.4fr_0.6fr] lg:items-center">
+          <div className="grid gap-6 sm:gap-10 lg:grid-cols-[1.4fr_0.6fr] lg:items-center">
             <div>
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs sm:mb-5 sm:px-4 sm:py-2 sm:text-sm">
                 <Globe2 className="h-4 w-4" />
                 {t.marketplaceBadge}
               </div>
 
-              <h1 className="max-w-4xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              <h1 className="max-w-4xl break-words ps-4 text-3xl font-bold leading-tight tracking-tight sm:ps-0 sm:text-5xl sm:leading-none lg:text-6xl">
                 {t.title}
               </h1>
 
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+              <p className="mt-3 max-w-2xl ps-4 text-base leading-7 text-slate-300 sm:mt-5 sm:ps-0 sm:text-lg sm:leading-8">
                 {t.description}
               </p>
 
@@ -1958,7 +1958,7 @@ Source: Health Nations Global Marketplace`
                 </div>
               )}
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-5 flex flex-wrap gap-2.5 sm:mt-8 sm:gap-3">
                 <Link
                   href="/supplier/register"
                   className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-slate-100"
@@ -1989,7 +1989,7 @@ Source: Health Nations Global Marketplace`
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
               <StatCard
                 label={
                   t.products
@@ -2045,8 +2045,8 @@ Source: Health Nations Global Marketplace`
       {/* FILTERS */}
 
       <section className="sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
-          <div className="grid gap-4 xl:grid-cols-[1fr_auto_auto_auto]">
+        <div className="mx-auto max-w-7xl px-3 py-3 sm:px-6 sm:py-6 lg:px-8">
+          <div className="grid gap-2 sm:gap-4 xl:grid-cols-[1fr_auto_auto_auto]">
             <div className="relative">
               <Search
                 className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 ${
@@ -2077,7 +2077,7 @@ Source: Health Nations Global Marketplace`
                 placeholder={
                   t.searchPlaceholder
                 }
-                className={`w-full rounded-xl border border-slate-200 bg-slate-50 py-3 outline-none transition focus:border-blue-500 focus:bg-white ${
+                className={`w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white sm:py-3 sm:text-base ${
                   isArabic
                     ? "pl-4 pr-12"
                     : "pl-12 pr-4"
@@ -2104,7 +2104,7 @@ Source: Health Nations Global Marketplace`
                 whatsappRedirected.current =
                   false;
               }}
-              className="min-w-[190px] rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 sm:min-w-[190px] sm:px-4 sm:py-3 sm:text-base"
             >
               <option value="all">
                 {t.allCountries}
@@ -2145,7 +2145,7 @@ Source: Health Nations Global Marketplace`
                 whatsappRedirected.current =
                   false;
               }}
-              className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 sm:min-w-[180px] sm:px-4 sm:py-3 sm:text-base"
             >
               <option value="all">
                 {t.allCategories}
@@ -2186,7 +2186,7 @@ Source: Health Nations Global Marketplace`
                 whatsappRedirected.current =
                   false;
               }}
-              className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 sm:min-w-[180px] sm:px-4 sm:py-3 sm:text-base"
             >
               <option value="all">
                 {t.allProducts}
@@ -2206,7 +2206,7 @@ Source: Health Nations Global Marketplace`
             </select>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-4 sm:gap-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
               <Globe2 className="h-3.5 w-3.5" />
 
@@ -2267,16 +2267,16 @@ Source: Health Nations Global Marketplace`
 
       {/* PRODUCTS */}
 
-      <section className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-        <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-950">
+      <section className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-10 lg:px-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-7 sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="break-words text-lg font-bold leading-6 text-slate-950 sm:text-2xl sm:leading-8">
               {
                 marketplaceHeading
               }
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">
               {
                 filteredProducts.length
               }{" "}
@@ -2287,7 +2287,7 @@ Source: Health Nations Global Marketplace`
             </p>
 
             {search.trim() && (
-              <p className="mt-1 text-sm font-medium text-blue-700">
+              <p className="mt-1 break-words text-xs font-medium text-blue-700 sm:text-sm">
                 {t.search}: &quot;
                 {search.trim()}
                 &quot;
@@ -2300,7 +2300,7 @@ Source: Health Nations Global Marketplace`
             onClick={() =>
               void loadMarketplace()
             }
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 sm:px-4 sm:text-sm"
           >
             {t.refresh}
           </button>
@@ -2352,7 +2352,7 @@ Source: Health Nations Global Marketplace`
             t={t}
           />
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map(
               (product) => (
                 <ProductCard
@@ -2759,9 +2759,9 @@ Source: Health Nations Global Marketplace`
         </div>
       </Link>
 
-      <div className="p-5">
+      <div className="min-w-0 p-3 sm:p-5">
         {product.category && (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
+          <p className="mb-1 break-words text-[11px] font-semibold uppercase tracking-wide text-blue-600 sm:mb-2 sm:text-xs">
             {product.category}
           </p>
         )}
@@ -2770,7 +2770,7 @@ Source: Health Nations Global Marketplace`
           href={`/store/product/${product.id}`}
           className="block"
         >
-          <h3 className="line-clamp-2 text-lg font-bold text-slate-950 transition hover:text-blue-700">
+          <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-slate-950 transition hover:text-blue-700 sm:text-lg sm:leading-7">
             {productName}
           </h3>
         </Link>
@@ -2779,7 +2779,7 @@ Source: Health Nations Global Marketplace`
           secondaryProductName !==
             productName && (
             <p
-              className="mt-1 line-clamp-1 text-sm text-slate-500"
+              className="mt-1 line-clamp-1 break-words text-xs text-slate-500 sm:text-sm"
               dir={
                 language ===
                 "ar"
@@ -2794,7 +2794,7 @@ Source: Health Nations Global Marketplace`
           )}
 
         {sparePart ? (
-          <div className="mt-4 space-y-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
+          <div className="mt-3 space-y-1.5 rounded-xl border border-amber-100 bg-amber-50 p-2 sm:mt-4 sm:space-y-2 sm:p-3">
             {product.part_number && (
               <ProductInfoRow
                 label={
@@ -2855,7 +2855,7 @@ Source: Health Nations Global Marketplace`
         ) : (
           (product.brand ||
             product.model) && (
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-2 break-words text-xs text-slate-500 sm:mt-3 sm:text-sm">
               {[
                 product.brand,
                 product.model,
@@ -2866,14 +2866,14 @@ Source: Health Nations Global Marketplace`
           )
         )}
 
-        <div className="mt-4 border-t border-slate-100 pt-4">
+        <div className="mt-3 border-t border-slate-100 pt-3 sm:mt-4 sm:pt-4">
           {product.available_for_sale && (
             <div>
               <p className="text-xs text-slate-500">
                 {t.salePrice}
               </p>
 
-              <p className="mt-1 text-xl font-bold text-slate-950">
+              <p className="mt-0.5 break-words text-lg font-bold text-slate-950 sm:mt-1 sm:text-xl">
                 {formatPrice(
                   product.sale_price,
                   product.currency,
@@ -2887,14 +2887,14 @@ Source: Health Nations Global Marketplace`
           {product.available_for_rental &&
             product.monthly_rental_price !==
               null && (
-              <div className="mt-3 rounded-xl bg-blue-50 p-3">
+              <div className="mt-2 rounded-xl bg-blue-50 p-2 sm:mt-3 sm:p-3">
                 <p className="text-xs font-medium text-blue-600">
                   {
                     t.monthlyRental
                   }
                 </p>
 
-                <p className="mt-1 font-bold text-blue-900">
+                <p className="mt-0.5 break-words text-sm font-bold text-blue-900 sm:mt-1 sm:text-base">
                   {formatPrice(
                     product.monthly_rental_price,
                     product.currency,
@@ -2906,7 +2906,7 @@ Source: Health Nations Global Marketplace`
             )}
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-500">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:mt-4 sm:text-xs">
           {product.stock !==
             null && (
             <span>
@@ -2932,7 +2932,7 @@ Source: Health Nations Global Marketplace`
 
         <Link
           href={`/store/product/${product.id}`}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-800 sm:mt-5 sm:px-4 sm:py-3 sm:text-sm"
         >
           {t.viewDetails}
 
@@ -2949,7 +2949,7 @@ Source: Health Nations Global Marketplace`
           href={whatsappUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 sm:mt-3 sm:px-4 sm:py-3 sm:text-sm"
         >
           <MessageCircle className="h-4 w-4" />
           {
@@ -2958,7 +2958,7 @@ Source: Health Nations Global Marketplace`
         </a>
 
         {supplier && (
-          <div className="mt-5 border-t border-slate-100 pt-4">
+          <div className="mt-4 border-t border-slate-100 pt-3 sm:mt-5 sm:pt-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100">
                 {supplier.logo_url ? (
@@ -3033,13 +3033,13 @@ function ProductInfoRow({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 text-sm">
-      <span className="text-slate-500">
+    <div className="flex items-start justify-between gap-2 text-xs sm:gap-3 sm:text-sm">
+      <span className="max-w-[42%] break-words text-slate-500 sm:max-w-none">
         {label}
       </span>
 
       <strong
-        className={`break-all text-end ${
+        className={`max-w-[58%] break-all text-end sm:max-w-none ${
           highlight
             ? "text-amber-800"
             : "text-slate-900"
