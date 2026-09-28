@@ -1269,17 +1269,17 @@ export default function Home() {
       {/* HEADER */}
 
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:px-5 sm:py-4">
           <Link
             href="/"
-            className="flex items-center gap-3"
+            className="flex min-w-0 items-center gap-2 sm:gap-3"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-700 to-teal-500 text-white shadow-lg">
-              <HeartPulse size={27} />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-700 to-teal-500 text-white shadow-lg sm:h-12 sm:w-12">
+              <HeartPulse size={24} className="sm:h-[27px] sm:w-[27px]" />
             </div>
 
-            <div>
-              <strong className="block text-lg font-black">
+            <div className="min-w-0">
+              <strong className="block max-w-[118px] text-sm font-black leading-tight sm:max-w-none sm:text-lg sm:leading-normal">
                 {t.company}
               </strong>
 
@@ -1307,7 +1307,7 @@ export default function Home() {
             )}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-black text-slate-700 lg:flex">
               <Globe2
                 size={17}
@@ -1324,9 +1324,9 @@ export default function Home() {
               {t.login}
             </Link>
 
-            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2">
+            <div className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
               <Globe2
-                size={17}
+                size={16}
                 className="text-blue-700"
               />
 
@@ -1339,7 +1339,7 @@ export default function Home() {
                       .value as Language
                   )
                 }
-                className="max-w-[110px] cursor-pointer bg-transparent text-sm font-bold text-slate-700 outline-none sm:max-w-none"
+                className="max-w-[94px] cursor-pointer bg-transparent text-sm font-bold text-slate-700 outline-none sm:max-w-none"
               >
                 <option value="ar">
                   🇸🇦 العربية
@@ -1367,7 +1367,7 @@ export default function Home() {
                     !current
                 )
               }
-              className="rounded-xl border border-slate-300 p-2 xl:hidden"
+              className="rounded-xl border border-slate-300 p-1.5 sm:p-2 xl:hidden"
               aria-label="Toggle menu"
             >
               {menuOpen ? (
@@ -1428,27 +1428,27 @@ export default function Home() {
           <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-blue-400 blur-3xl" />
         </div>
 
-        <div className="relative mx-auto grid min-h-[700px] max-w-7xl items-center gap-12 px-5 py-20 lg:grid-cols-2">
+        <div className="relative mx-auto grid min-h-[560px] max-w-7xl items-center gap-8 px-4 py-12 sm:min-h-[700px] sm:gap-12 sm:px-5 sm:py-20 lg:grid-cols-2">
           <div>
-            <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-blue-100">
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-blue-100 sm:mb-6 sm:px-4 sm:text-sm">
               <Globe2 size={17} />
 
               {t.heroBadge}
             </span>
 
-            <h1 className="max-w-4xl text-4xl font-black leading-tight text-white md:text-6xl">
+            <h1 className="max-w-4xl text-3xl font-black leading-[1.2] text-white sm:text-4xl sm:leading-tight md:text-6xl">
               {t.heroTitle}
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-blue-100">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-blue-100 sm:mt-6 sm:text-lg sm:leading-8">
               {t.heroDescription}
             </p>
 
             {/* SEARCH */}
 
-            <div className="mt-8 max-w-2xl rounded-3xl border border-white/20 bg-white/10 p-4 shadow-xl backdrop-blur">
+            <div className="mt-6 w-full max-w-2xl min-w-0 rounded-3xl border border-white/20 bg-white/10 p-3 shadow-xl backdrop-blur sm:mt-8 sm:p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="font-black text-white">
+                <p className="min-w-0 text-sm font-black leading-6 text-white sm:text-base">
                   {t.searchTitle}
                 </p>
 
@@ -1459,8 +1459,8 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="relative flex-1">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
+                <div className="relative w-full min-w-0 flex-1">
                   <Search
                     size={20}
                     className={`absolute top-1/2 -translate-y-1/2 text-slate-400 ${
@@ -1496,7 +1496,7 @@ export default function Home() {
                     placeholder={
                       t.searchPlaceholder
                     }
-                    className={`w-full rounded-2xl border border-white/20 bg-white py-4 text-slate-900 outline-none transition focus:ring-4 focus:ring-teal-300/30 ${
+                    className={`w-full min-w-0 rounded-2xl border border-white/20 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:ring-4 focus:ring-teal-300/30 sm:px-4 sm:py-4 sm:text-base ${
                       isArabic
                         ? "pl-4 pr-12"
                         : "pl-12 pr-4"
@@ -1509,7 +1509,7 @@ export default function Home() {
                   onClick={
                     handleProductSearch
                   }
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-7 py-4 font-black text-white transition hover:bg-teal-400"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-500 px-6 py-3 font-black text-white transition hover:bg-teal-400 sm:w-auto sm:px-7 sm:py-4"
                 >
                   <Search size={19} />
 
@@ -1517,7 +1517,7 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <input
                     ref={
@@ -1566,16 +1566,16 @@ export default function Home() {
                   )}
                 </div>
 
-                <span className="text-sm text-blue-100">
+                <span className="min-w-0 break-words text-sm leading-6 text-blue-100">
                   {t.sourceHelp}
                 </span>
               </div>
             </div>
 
-            <div className="mt-7 flex flex-wrap gap-4">
+            <div className="mt-6 flex flex-wrap gap-3 sm:mt-7 sm:gap-4">
               <Link
                 href="/store"
-                className="inline-flex items-center gap-2 rounded-2xl bg-teal-500 px-6 py-4 font-bold text-white transition hover:bg-teal-400"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-500 px-5 py-3 font-bold text-white transition hover:bg-teal-400 sm:w-auto sm:px-6 sm:py-4"
               >
                 <ShoppingCart
                   size={20}
@@ -1586,7 +1586,7 @@ export default function Home() {
 
               <Link
                 href="/import-request"
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/40 px-6 py-4 font-bold text-white transition hover:bg-white/10"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/40 px-5 py-3 font-bold text-white transition hover:bg-white/10 sm:w-auto sm:px-6 sm:py-4"
               >
                 {t.quote}
 
@@ -1602,7 +1602,7 @@ export default function Home() {
 
               <Link
                 href="/supplier/register"
-                className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 font-bold text-white transition hover:bg-emerald-500"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 font-bold text-white transition hover:bg-emerald-500 sm:w-auto sm:px-6 sm:py-4"
               >
                 <Building2
                   size={20}
