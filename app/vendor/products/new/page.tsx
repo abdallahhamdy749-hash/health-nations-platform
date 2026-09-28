@@ -119,7 +119,13 @@ const initialForm: ProductForm = {
 
 const STORAGE_BUCKET = "vendor-assets";
 const CATALOG_FOLDER = "catalogs";
-const MAX_CATALOG_SIZE = 20 * 1024 * 1024;
+const PRODUCT_IMAGE_FOLDER = "products";
+
+const MAX_CATALOG_SIZE =
+  20 * 1024 * 1024;
+
+const MAX_PRODUCT_IMAGE_SIZE =
+  5 * 1024 * 1024;
 
 function getDefaultCurrency(
   country: string | null
@@ -188,6 +194,9 @@ export default function AddVendorProductPage() {
   const catalogInputRef =
     useRef<HTMLInputElement | null>(null);
 
+  const productImageInputRef =
+    useRef<HTMLInputElement | null>(null);
+
   const [form, setForm] =
     useState<ProductForm>(initialForm);
 
@@ -200,93 +209,112 @@ export default function AddVendorProductPage() {
   const [saving, setSaving] =
     useState(false);
 
-  const [uploadingCatalog, setUploadingCatalog] =
-    useState(false);
+  const [
+    uploadingCatalog,
+    setUploadingCatalog,
+  ] = useState(false);
 
-  const [catalogFileName, setCatalogFileName] =
-    useState("");
+  const [
+    uploadingProductImage,
+    setUploadingProductImage,
+  ] = useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState("");
+  const [
+    catalogFileName,
+    setCatalogFileName,
+  ] = useState("");
 
-  const [successMessage, setSuccessMessage] =
-    useState("");
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
 
-  const checkUser = useCallback(async () => {
-    try {
-      setCheckingUser(true);
-      setErrorMessage("");
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState("");
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+  const checkUser =
+    useCallback(async () => {
+      try {
+        setCheckingUser(true);
+        setErrorMessage("");
 
-      if (userError) {
-        throw new Error(userError.message);
-      }
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
+        if (userError) {
+          throw new Error(
+            userError.message
+          );
+        }
 
-      const { data, error } = await supabase
-        .from("supplier_profiles")
-        .select(`
-          user_id,
-          company_name_en,
-          company_name_ar,
-          country,
-          status,
-          verified
-        `)
-        .eq("user_id", user.id)
-        .maybeSingle();
+        if (!user) {
+          router.replace("/login");
+          return;
+        }
 
-      if (error) {
-        throw new Error(
-          `${error.message}${
-            error.code
-              ? ` — Code: ${error.code}`
-              : ""
-          }`
+        const { data, error } =
+          await supabase
+            .from("supplier_profiles")
+            .select(`
+              user_id,
+              company_name_en,
+              company_name_ar,
+              country,
+              status,
+              verified
+            `)
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        if (error) {
+          throw new Error(
+            `${error.message}${
+              error.code
+                ? ` — Code: ${error.code}`
+                : ""
+            }`
+          );
+        }
+
+        if (!data) {
+          throw new Error(
+            "لم يتم العثور على حساب المورد المرتبط بالمستخدم الحالي."
+          );
+        }
+
+        const profile =
+          data as SupplierProfile;
+
+        setSupplier(profile);
+
+        setForm((current) => ({
+          ...current,
+          currency:
+            getDefaultCurrency(
+              profile.country
+            ),
+        }));
+      } catch (error: unknown) {
+        setErrorMessage(
+          getErrorMessage(
+            error,
+            "تعذر التحقق من حساب المورد."
+          )
         );
+      } finally {
+        setCheckingUser(false);
       }
-
-      if (!data) {
-        throw new Error(
-          "لم يتم العثور على حساب المورد المرتبط بالمستخدم الحالي."
-        );
-      }
-
-      const profile =
-        data as SupplierProfile;
-
-      setSupplier(profile);
-
-      setForm((current) => ({
-        ...current,
-        currency: getDefaultCurrency(
-          profile.country
-        ),
-      }));
-    } catch (error: unknown) {
-      setErrorMessage(
-        getErrorMessage(
-          error,
-          "تعذر التحقق من حساب المورد."
-        )
-      );
-    } finally {
-      setCheckingUser(false);
-    }
-  }, [router]);
+    }, [router]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void checkUser();
-    }, 0);
+    const timer =
+      window.setTimeout(() => {
+        void checkUser();
+      }, 0);
 
     return () => {
       window.clearTimeout(timer);
@@ -355,22 +383,156 @@ export default function AddVendorProductPage() {
     }));
   }
 
-  async function uploadCatalog(file: File) {
+  async function uploadProductImage(
+    file: File
+  ) {
+    try {
+      setUploadingProductImage(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ];
+
+      if (
+        !allowedTypes.includes(file.type)
+      ) {
+        throw new Error(
+          "صورة المنتج يجب أن تكون JPG أو PNG أو WEBP."
+        );
+      }
+
+      if (
+        file.size >
+        MAX_PRODUCT_IMAGE_SIZE
+      ) {
+        throw new Error(
+          "حجم صورة المنتج يجب ألا يتجاوز 5 MB."
+        );
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw new Error(
+          userError.message
+        );
+      }
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const safeFileName =
+        sanitizeFileName(file.name) ||
+        "product-image";
+
+      const uniqueName =
+        `${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
+
+      const filePath =
+        `${PRODUCT_IMAGE_FOLDER}/${user.id}/${uniqueName}`;
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            contentType: file.type,
+            upsert: false,
+          });
+
+      if (uploadError) {
+        throw new Error(
+          `Product image upload failed: ${uploadError.message}`
+        );
+      }
+
+      const { data: publicUrlData } =
+        supabase.storage
+          .from(STORAGE_BUCKET)
+          .getPublicUrl(filePath);
+
+      const publicUrl =
+        publicUrlData.publicUrl;
+
+      if (!publicUrl) {
+        throw new Error(
+          "تم رفع الصورة ولكن تعذر إنشاء الرابط العام."
+        );
+      }
+
+      updateField(
+        "imageUrl",
+        publicUrl
+      );
+
+      setSuccessMessage(
+        "تم رفع صورة المنتج بنجاح. أكمل البيانات ثم احفظ المنتج."
+      );
+    } catch (error: unknown) {
+      setErrorMessage(
+        getErrorMessage(
+          error,
+          "تعذر رفع صورة المنتج."
+        )
+      );
+    } finally {
+      setUploadingProductImage(
+        false
+      );
+
+      if (
+        productImageInputRef.current
+      ) {
+        productImageInputRef.current.value =
+          "";
+      }
+    }
+  }
+
+  function removeProductImage() {
+    updateField("imageUrl", "");
+
+    if (
+      productImageInputRef.current
+    ) {
+      productImageInputRef.current.value =
+        "";
+    }
+  }
+
+  async function uploadCatalog(
+    file: File
+  ) {
     try {
       setUploadingCatalog(true);
       setErrorMessage("");
       setSuccessMessage("");
 
       if (
-        file.type !== "application/pdf" &&
-        !file.name.toLowerCase().endsWith(".pdf")
+        file.type !==
+          "application/pdf" &&
+        !file.name
+          .toLowerCase()
+          .endsWith(".pdf")
       ) {
         throw new Error(
           "الكتالوج يجب أن يكون ملف PDF."
         );
       }
 
-      if (file.size > MAX_CATALOG_SIZE) {
+      if (
+        file.size >
+        MAX_CATALOG_SIZE
+      ) {
         throw new Error(
           "حجم ملف الكتالوج يجب ألا يتجاوز 20 MB."
         );
@@ -382,7 +544,9 @@ export default function AddVendorProductPage() {
       } = await supabase.auth.getUser();
 
       if (userError) {
-        throw new Error(userError.message);
+        throw new Error(
+          userError.message
+        );
       }
 
       if (!user) {
@@ -393,9 +557,11 @@ export default function AddVendorProductPage() {
       const safeFileName =
         sanitizeFileName(file.name);
 
-      const uniqueName = `${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
+      const uniqueName =
+        `${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
 
-      const filePath = `${CATALOG_FOLDER}/${user.id}/${uniqueName}`;
+      const filePath =
+        `${CATALOG_FOLDER}/${user.id}/${uniqueName}`;
 
       const { error: uploadError } =
         await supabase.storage
@@ -432,7 +598,9 @@ export default function AddVendorProductPage() {
         publicUrl
       );
 
-      setCatalogFileName(file.name);
+      setCatalogFileName(
+        file.name
+      );
 
       setSuccessMessage(
         "تم رفع الكتالوج بنجاح. احفظ المنتج لإرساله إلى الإدارة."
@@ -447,7 +615,9 @@ export default function AddVendorProductPage() {
     } finally {
       setUploadingCatalog(false);
 
-      if (catalogInputRef.current) {
+      if (
+        catalogInputRef.current
+      ) {
         catalogInputRef.current.value =
           "";
       }
@@ -459,7 +629,8 @@ export default function AddVendorProductPage() {
     setCatalogFileName("");
 
     if (catalogInputRef.current) {
-      catalogInputRef.current.value = "";
+      catalogInputRef.current.value =
+        "";
     }
   }
 
@@ -479,7 +650,9 @@ export default function AddVendorProductPage() {
       } = await supabase.auth.getUser();
 
       if (userError) {
-        throw new Error(userError.message);
+        throw new Error(
+          userError.message
+        );
       }
 
       if (!user) {
@@ -568,7 +741,9 @@ export default function AddVendorProductPage() {
 
       if (
         salePrice !== null &&
-        (!Number.isFinite(salePrice) ||
+        (!Number.isFinite(
+          salePrice
+        ) ||
           salePrice < 0)
       ) {
         throw new Error(
@@ -608,109 +783,118 @@ export default function AddVendorProductPage() {
         );
       }
 
-      const { error } = await supabase
-        .from("supplier_products")
-        .insert({
-          supplier_id: user.id,
+      const { error } =
+        await supabase
+          .from(
+            "supplier_products"
+          )
+          .insert({
+            supplier_id: user.id,
 
-          product_kind:
-            form.productKind,
+            product_kind:
+              form.productKind,
 
-          name_en: nameEn,
+            name_en: nameEn,
 
-          name_ar: emptyToNull(
-            form.nameAr
-          ),
+            name_ar:
+              emptyToNull(
+                form.nameAr
+              ),
 
-          description_en:
-            emptyToNull(
-              form.descriptionEn
+            description_en:
+              emptyToNull(
+                form.descriptionEn
+              ),
+
+            description_ar:
+              emptyToNull(
+                form.descriptionAr
+              ),
+
+            category,
+
+            brand: emptyToNull(
+              form.brand
             ),
 
-          description_ar:
-            emptyToNull(
-              form.descriptionAr
+            model: emptyToNull(
+              form.model
             ),
 
-          category,
+            part_number:
+              form.productKind ===
+              "spare_part"
+                ? emptyToNull(
+                    form.partNumber
+                  )
+                : null,
 
-          brand: emptyToNull(
-            form.brand
-          ),
+            manufacturer:
+              form.productKind ===
+              "spare_part"
+                ? emptyToNull(
+                    form.manufacturer
+                  )
+                : null,
 
-          model: emptyToNull(
-            form.model
-          ),
+            compatible_device:
+              form.productKind ===
+              "spare_part"
+                ? emptyToNull(
+                    form.compatibleDevice
+                  )
+                : null,
 
-          part_number:
-            form.productKind ===
-            "spare_part"
-              ? emptyToNull(
-                  form.partNumber
-                )
-              : null,
+            part_condition:
+              form.productKind ===
+              "spare_part"
+                ? emptyToNull(
+                    form.partCondition
+                  )
+                : null,
 
-          manufacturer:
-            form.productKind ===
-            "spare_part"
-              ? emptyToNull(
-                  form.manufacturer
-                )
-              : null,
+            image_url:
+              emptyToNull(
+                form.imageUrl
+              ),
 
-          compatible_device:
-            form.productKind ===
-            "spare_part"
-              ? emptyToNull(
-                  form.compatibleDevice
-                )
-              : null,
+            catalog_url:
+              emptyToNull(
+                form.catalogUrl
+              ),
 
-          part_condition:
-            form.productKind ===
-            "spare_part"
-              ? emptyToNull(
-                  form.partCondition
-                )
-              : null,
+            alibaba_url:
+              emptyToNull(
+                form.alibabaUrl
+              ),
 
-          image_url: emptyToNull(
-            form.imageUrl
-          ),
+            sale_price:
+              salePrice,
 
-          catalog_url: emptyToNull(
-            form.catalogUrl
-          ),
+            currency:
+              form.currency,
 
-          alibaba_url: emptyToNull(
-            form.alibabaUrl
-          ),
+            minimum_order_quantity:
+              minimumOrderQuantity,
 
-          sale_price: salePrice,
+            stock,
 
-          currency: form.currency,
+            available_for_sale:
+              form.availableForSale,
 
-          minimum_order_quantity:
-            minimumOrderQuantity,
+            available_for_rental:
+              form.availableForRental,
 
-          stock,
+            monthly_rental_price:
+              monthlyRentalPrice,
 
-          available_for_sale:
-            form.availableForSale,
+            status: "pending",
 
-          available_for_rental:
-            form.availableForRental,
+            featured: false,
 
-          monthly_rental_price:
-            monthlyRentalPrice,
-
-          status: "pending",
-
-          featured: false,
-
-          updated_at:
-            new Date().toISOString(),
-        });
+            updated_at:
+              new Date().toISOString(),
+          });
 
       if (error) {
         const fullMessage = [
@@ -731,7 +915,9 @@ export default function AddVendorProductPage() {
           .filter(Boolean)
           .join(" — ");
 
-        throw new Error(fullMessage);
+        throw new Error(
+          fullMessage
+        );
       }
 
       setSuccessMessage(
@@ -742,7 +928,8 @@ export default function AddVendorProductPage() {
 
       setForm((current) => ({
         ...initialForm,
-        currency: current.currency,
+        currency:
+          current.currency,
       }));
 
       window.setTimeout(() => {
@@ -771,7 +958,8 @@ export default function AddVendorProductPage() {
           <Loader2 className="animate-spin text-blue-700" />
 
           <span className="font-bold text-slate-700">
-            Checking vendor account...
+            Checking vendor
+            account...
           </span>
         </div>
       </main>
@@ -797,12 +985,15 @@ export default function AddVendorProductPage() {
         <header className="rounded-[32px] bg-slate-950 p-7 text-white shadow-sm md:p-10">
           <div className="flex flex-col gap-5 md:flex-row md:items-center">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-blue-700">
-              <PackagePlus size={36} />
+              <PackagePlus
+                size={36}
+              />
             </div>
 
             <div>
               <p className="font-bold uppercase tracking-wider text-blue-300">
-                Global Vendor Products
+                Global Vendor
+                Products
               </p>
 
               <h1 className="mt-2 text-4xl font-black">
@@ -842,7 +1033,8 @@ export default function AddVendorProductPage() {
 
             <div>
               <strong className="block text-lg">
-                Something went wrong
+                Something went
+                wrong
               </strong>
 
               <p className="mt-1 break-words">
@@ -917,7 +1109,9 @@ export default function AddVendorProductPage() {
                   )
                 }
                 icon={
-                  <Settings size={22} />
+                  <Settings
+                    size={22}
+                  />
                 }
               />
             </div>
@@ -1046,14 +1240,17 @@ export default function AddVendorProductPage() {
 
                   <div>
                     <strong className="text-amber-900">
-                      Medical Spare Part
+                      Medical Spare
+                      Part
                     </strong>
 
                     <p className="mt-1 text-sm leading-6 text-amber-800">
-                      Accurate part numbers
-                      and compatible device
+                      Accurate part
+                      numbers and
+                      compatible device
                       information improve
-                      global search results.
+                      global search
+                      results.
                     </p>
 
                     <p
@@ -1061,10 +1258,10 @@ export default function AddVendorProductPage() {
                       dir="rtl"
                     >
                       اكتب رقم القطعة
-                      والجهاز المتوافق بدقة
-                      حتى يستطيع العميل
-                      العثور على القطعة
-                      الصحيحة.
+                      والجهاز المتوافق
+                      بدقة حتى يستطيع
+                      العميل العثور على
+                      القطعة الصحيحة.
                     </p>
                   </div>
                 </div>
@@ -1208,7 +1405,9 @@ export default function AddVendorProductPage() {
             <div className="mt-5 grid gap-5 md:grid-cols-2">
               <NumberField
                 label="Sale Price"
-                value={form.salePrice}
+                value={
+                  form.salePrice
+                }
                 disabled={
                   !form.availableForSale
                 }
@@ -1222,7 +1421,9 @@ export default function AddVendorProductPage() {
 
               <SelectField
                 label="Currency"
-                value={form.currency}
+                value={
+                  form.currency
+                }
                 onChange={(value) =>
                   updateField(
                     "currency",
@@ -1237,7 +1438,8 @@ export default function AddVendorProductPage() {
                   },
                   {
                     value: "EUR",
-                    label: "EUR — Euro",
+                    label:
+                      "EUR — Euro",
                   },
                   {
                     value: "GBP",
@@ -1332,21 +1534,162 @@ export default function AddVendorProductPage() {
 
           <FormSection
             title="Images and Catalog"
-            subtitle="Add the product image, PDF catalog and supplier reference."
+            subtitle="Upload the product image, PDF catalog and supplier reference."
           >
             <div className="grid gap-5">
-              <TextField
-                label="Product Image URL"
-                value={form.imageUrl}
-                onChange={(value) =>
-                  updateField(
-                    "imageUrl",
-                    value
-                  )
-                }
-                placeholder="https://..."
-                type="url"
-              />
+
+              {/* PRODUCT IMAGE */}
+
+              <div>
+                <span className="mb-2 block font-bold text-slate-700">
+                  Product Image
+                </span>
+
+                <input
+                  ref={
+                    productImageInputRef
+                  }
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(
+                    event
+                  ) => {
+                    const file =
+                      event.target
+                        .files?.[0];
+
+                    if (file) {
+                      void uploadProductImage(
+                        file
+                      );
+                    }
+                  }}
+                />
+
+                {!form.imageUrl ? (
+                  <button
+                    type="button"
+                    disabled={
+                      uploadingProductImage ||
+                      saving
+                    }
+                    onClick={() =>
+                      productImageInputRef.current?.click()
+                    }
+                    className="flex w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-6 py-10 text-center transition hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {uploadingProductImage ? (
+                      <>
+                        <Loader2
+                          size={34}
+                          className="animate-spin text-blue-700"
+                        />
+
+                        <strong className="mt-4 text-blue-900">
+                          Uploading
+                          Image...
+                        </strong>
+                      </>
+                    ) : (
+                      <>
+                        <Upload
+                          size={34}
+                          className="text-blue-700"
+                        />
+
+                        <strong className="mt-4 text-blue-900">
+                          Upload Product
+                          Image
+                        </strong>
+
+                        <span className="mt-2 text-sm text-slate-500">
+                          JPG, PNG or
+                          WEBP — maximum
+                          5 MB
+                        </span>
+
+                        <span
+                          className="mt-1 text-sm text-slate-500"
+                          dir="rtl"
+                        >
+                          اضغط هنا
+                          لاختيار صورة
+                          المنتج
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+                    <div className="grid gap-5 md:grid-cols-[220px_1fr] md:items-center">
+                      <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white">
+                        <img
+                          src={
+                            form.imageUrl
+                          }
+                          alt="Product preview"
+                          className="h-48 w-full object-contain"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 text-emerald-800">
+                          <CheckCircle2
+                            size={20}
+                          />
+
+                          <strong>
+                            Product Image
+                            Ready
+                          </strong>
+                        </div>
+
+                        <p className="mt-2 text-sm text-emerald-700">
+                          The image will
+                          be saved with
+                          this product.
+                        </p>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={
+                              uploadingProductImage ||
+                              saving
+                            }
+                            onClick={() =>
+                              productImageInputRef.current?.click()
+                            }
+                            className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-blue-700 shadow-sm disabled:opacity-50"
+                          >
+                            Change Image
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={
+                              uploadingProductImage ||
+                              saving
+                            }
+                            onClick={
+                              removeProductImage
+                            }
+                            className="inline-flex items-center gap-1 rounded-xl bg-red-50 px-4 py-2 text-sm font-bold text-red-600 disabled:opacity-50"
+                          >
+                            <X
+                              size={16}
+                            />
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* CATALOG */}
 
               <div>
                 <span className="mb-2 block font-bold text-slate-700">
@@ -1354,13 +1697,18 @@ export default function AddVendorProductPage() {
                 </span>
 
                 <input
-                  ref={catalogInputRef}
+                  ref={
+                    catalogInputRef
+                  }
                   type="file"
                   accept="application/pdf,.pdf"
                   className="hidden"
-                  onChange={(event) => {
+                  onChange={(
+                    event
+                  ) => {
                     const file =
-                      event.target.files?.[0];
+                      event.target
+                        .files?.[0];
 
                     if (file) {
                       void uploadCatalog(
@@ -1375,6 +1723,7 @@ export default function AddVendorProductPage() {
                     type="button"
                     disabled={
                       uploadingCatalog ||
+                      uploadingProductImage ||
                       saving
                     }
                     onClick={() =>
@@ -1415,8 +1764,9 @@ export default function AddVendorProductPage() {
                           className="mt-1 text-sm text-slate-500"
                           dir="rtl"
                         >
-                          اضغط هنا لاختيار
-                          كتالوج المنتج
+                          اضغط هنا
+                          لاختيار كتالوج
+                          المنتج
                         </span>
                       </>
                     )}
@@ -1457,12 +1807,17 @@ export default function AddVendorProductPage() {
 
                         <button
                           type="button"
+                          disabled={
+                            saving
+                          }
                           onClick={
                             removeCatalog
                           }
-                          className="inline-flex items-center gap-1 rounded-xl bg-red-50 px-4 py-2 text-sm font-bold text-red-600"
+                          className="inline-flex items-center gap-1 rounded-xl bg-red-50 px-4 py-2 text-sm font-bold text-red-600 disabled:opacity-50"
                         >
-                          <X size={16} />
+                          <X
+                            size={16}
+                          />
                           Remove
                         </button>
                       </div>
@@ -1476,7 +1831,9 @@ export default function AddVendorProductPage() {
                     value={
                       form.catalogUrl
                     }
-                    onChange={(value) => {
+                    onChange={(
+                      value
+                    ) => {
                       updateField(
                         "catalogUrl",
                         value
@@ -1496,7 +1853,9 @@ export default function AddVendorProductPage() {
 
               <TextField
                 label="Alibaba URL"
-                value={form.alibabaUrl}
+                value={
+                  form.alibabaUrl
+                }
                 onChange={(value) =>
                   updateField(
                     "alibabaUrl",
@@ -1514,7 +1873,8 @@ export default function AddVendorProductPage() {
               type="button"
               disabled={
                 saving ||
-                uploadingCatalog
+                uploadingCatalog ||
+                uploadingProductImage
               }
               onClick={() =>
                 router.push(
@@ -1530,7 +1890,8 @@ export default function AddVendorProductPage() {
               type="submit"
               disabled={
                 saving ||
-                uploadingCatalog
+                uploadingCatalog ||
+                uploadingProductImage
               }
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-8 py-4 font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -1540,11 +1901,14 @@ export default function AddVendorProductPage() {
                     size={20}
                     className="animate-spin"
                   />
-                  Saving Product...
+                  Saving
+                  Product...
                 </>
               ) : (
                 <>
-                  <Save size={20} />
+                  <Save
+                    size={20}
+                  />
                   Save Product
                 </>
               )}
@@ -1599,7 +1963,9 @@ function ProductTypeCard({
 
       {selected && (
         <span className="mt-4 inline-flex items-center gap-1 text-xs font-black text-blue-700">
-          <CheckCircle2 size={15} />
+          <CheckCircle2
+            size={15}
+          />
           Selected
         </span>
       )}
@@ -1644,7 +2010,9 @@ function TextField({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
   required?: boolean;
   placeholder?: string;
   direction?: "ltr" | "rtl";
@@ -1668,9 +2036,13 @@ function TextField({
         required={required}
         dir={direction}
         value={value}
-        placeholder={placeholder}
+        placeholder={
+          placeholder
+        }
         onChange={(event) =>
-          onChange(event.target.value)
+          onChange(
+            event.target.value
+          )
         }
         className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
       />
@@ -1689,7 +2061,9 @@ function NumberField({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
   required?: boolean;
   disabled?: boolean;
   min?: string;
@@ -1716,7 +2090,9 @@ function NumberField({
         step={step}
         value={value}
         onChange={(event) =>
-          onChange(event.target.value)
+          onChange(
+            event.target.value
+          )
         }
         className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
       />
@@ -1732,7 +2108,9 @@ function TextAreaField({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
   direction?: "ltr" | "rtl";
 }) {
   return (
@@ -1746,7 +2124,9 @@ function TextAreaField({
         dir={direction}
         value={value}
         onChange={(event) =>
-          onChange(event.target.value)
+          onChange(
+            event.target.value
+          )
         }
         className="w-full resize-y rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
       />
@@ -1762,7 +2142,9 @@ function SelectField({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
   options: Array<{
     value: string;
     label: string;
@@ -1777,18 +2159,26 @@ function SelectField({
       <select
         value={value}
         onChange={(event) =>
-          onChange(event.target.value)
+          onChange(
+            event.target.value
+          )
         }
         className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-100"
       >
-        {options.map((option) => (
-          <option
-            key={option.value}
-            value={option.value}
-          >
-            {option.label}
-          </option>
-        ))}
+        {options.map(
+          (option) => (
+            <option
+              key={
+                option.value
+              }
+              value={
+                option.value
+              }
+            >
+              {option.label}
+            </option>
+          )
+        )}
       </select>
     </label>
   );
@@ -1852,7 +2242,9 @@ function emptyToNull(
   const normalizedValue =
     value.trim();
 
-  return normalizedValue || null;
+  return (
+    normalizedValue || null
+  );
 }
 
 function getErrorMessage(
@@ -1877,7 +2269,9 @@ function getErrorMessage(
     );
   }
 
-  if (typeof error === "string") {
+  if (
+    typeof error === "string"
+  ) {
     return error;
   }
 
