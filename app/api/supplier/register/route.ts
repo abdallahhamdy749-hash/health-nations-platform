@@ -29,7 +29,7 @@ function cleanEnvironmentValue(
 
   return value
     .trim()
-    .replace(/^["']|["']$/g, "");
+    .replace(/^[\"']|[\"']$/g, "");
 }
 
 function cleanEnvironmentKey(
@@ -90,9 +90,15 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
 
+  /*
+   * Prefer the new Supabase Secret API key.
+   * Fall back to the legacy service_role key
+   * if the new key is unavailable.
+   */
   const serviceRoleKey =
     cleanEnvironmentKey(
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+      process.env.SUPABASE_SECRET_KEY_TEST ||
+        process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
   if (
