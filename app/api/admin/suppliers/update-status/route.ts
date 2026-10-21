@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL;
 
     const serviceRoleKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY;
+      process.env.SUPABASE_SECRET_KEY_TEST;
 
     if (!supabaseUrl) {
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "SUPABASE_SERVICE_ROLE_KEY is missing.",
+            "SUPABASE_SECRET_KEY_TEST is missing.",
         },
         { status: 500 }
       );
