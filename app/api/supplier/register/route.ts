@@ -97,8 +97,7 @@ export async function POST(request: Request) {
    */
   const serviceRoleKey =
     cleanEnvironmentKey(
-      process.env.SUPABASE_SECRET_KEY_TEST ||
-        process.env.SUPABASE_SERVICE_ROLE_KEY
+      process.env.SUPABASE_SECRET_KEY_TEST
     );
 
   if (
