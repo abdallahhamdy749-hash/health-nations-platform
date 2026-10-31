@@ -551,6 +551,53 @@ function BulkImport({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const busyRef = useRef(false);
+  const imagesInputRef = useRef<HTMLInputElement>(null);
+  const uploadedImages = useRef(new Map<File, { userId: string; url: string }>());
+  const [images, setImages] = useState<Array<{ file: File; url: string }>>([]);
+  const [imageChoices, setImageChoices] = useState<Record<string, string>>({});
+  const [imageError, setImageError] = useState("");
+  const [progress, setProgress] = useState("");
+
+  useEffect(() => {
+    return () => images.forEach((image) => URL.revokeObjectURL(image.url));
+  }, [images]);
+
+  function selectedImage(row: ImportRow) {
+    const choice = imageChoices[productKey(row)];
+    if (choice !== undefined) return images.find((image) => image.file.name === choice);
+    const matches = images.filter((image) =>
+      normalizeImageName(image.file.name, true) === normalizeImageName(row.name_en)
+    );
+    return matches.length === 1 ? matches[0] : undefined;
+  }
+
+
+  function chooseImages(files: File[]) {
+    if (busyRef.current) return;
+    setImageError("");
+    try {
+      if (files.length > 200) throw new Error("الحد الأقصى 200 صورة.");
+      if (files.reduce((total, file) => total + file.size, 0) > 100 * 1024 * 1024) {
+        throw new Error("إجمالي الصور يجب ألا يتجاوز 100 MB.");
+      }
+      if (new Set(files.map((file) => file.name)).size !== files.length) {
+        throw new Error("أسماء الصور يجب ألا تتكرر.");
+      }
+      for (const file of files) {
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+          throw new Error(`الصورة ${file.name}: استخدم JPG أو PNG أو WEBP.`);
+        }
+        if (!file.size || file.size > 5 * 1024 * 1024) {
+          throw new Error(`الصورة ${file.name}: الحد الأقصى 5 MB ويجب ألا تكون فارغة.`);
+        }
+      }
+      setImages(files.map((file) => ({ file, url: URL.createObjectURL(file) })));
+      setImageChoices({});
+      uploadedImages.current.clear();
+    } catch (error: unknown) {
+      setImageError(getErrorMessage(error, "تعذر اختيار الصور."));
+    }
+  }
 
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -558,6 +605,11 @@ function BulkImport({
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
   const [needsReview, setNeedsReview] = useState(false);
+
+  const assignedNames = rows.map((row) => selectedImage(row)?.file.name).filter(Boolean);
+  const unusedImages = images.filter((image) => !assignedNames.includes(image.file.name));
+  const repeatedImage = new Set(assignedNames).size !== assignedNames.length;
+
 
   const duplicateCount = useMemo(() => {
     const existing = new Set(products.map(productKey));
@@ -569,6 +621,9 @@ function BulkImport({
     loading ||
     Boolean(loadError) ||
     needsReview ||
+    Boolean(imageError) ||
+    unusedImages.length > 0 ||
+    repeatedImage ||
     errors.length > 0 ||
     duplicateCount > 0 ||
     rows.length === 0;
@@ -683,11 +738,42 @@ function BulkImport({
         );
       }
 
-      const payload = rows.map((row) => ({
-        ...row,
-        supplier_id: user.id,
-        status: "pending" as const,
-      }));
+      const payload = [];
+      // Upload every selected image before inserting any products.
+      // Successful uploads are reused if a later upload fails in this session.
+      for (const [index, row] of rows.entries()) {
+        setProgress(`تجهيز المنتج ${index + 1} من ${rows.length}`);
+        const image = selectedImage(row);
+        let imageUrl = row.image_url;
+        if (image) {
+          const cached = uploadedImages.current.get(image.file);
+          if (cached?.userId === user.id) {
+            imageUrl = cached.url;
+          } else {
+            const extension = image.file.type === "image/png"
+              ? "png" : image.file.type === "image/webp" ? "webp" : "jpg";
+            const path = `products/${user.id}/${crypto.randomUUID()}.${extension}`;
+            const storage = supabase.storage.from("vendor-assets");
+            const { error: uploadError } = await storage.upload(path, image.file, {
+              contentType: image.file.type,
+              cacheControl: "3600",
+              upsert: false,
+            });
+            if (uploadError) {
+              throw new Error(`تعذر رفع صورة ${row.name_en}: ${uploadError.message}`);
+            }
+            imageUrl = storage.getPublicUrl(path).data.publicUrl;
+            uploadedImages.current.set(image.file, { userId: user.id, url: imageUrl });
+          }
+        }
+        payload.push({
+          ...row,
+          image_url: imageUrl,
+          supplier_id: user.id,
+          status: "pending" as const,
+        });
+      }
+      setProgress("جارٍ حفظ المنتجات بصورها...");
 
       insertStarted = true;
 
@@ -699,6 +785,9 @@ function BulkImport({
 
       insertStarted = false;
       insertedCount = rows.length;
+      setImages([]);
+      setImageChoices({});
+      uploadedImages.current.clear();
 
       setRows([]);
       setErrors([]);
@@ -730,10 +819,11 @@ function BulkImport({
       } else {
         setNotice({
           error: true,
-          text: getErrorMessage(error, "تعذر حفظ المنتجات."),
+          text: `${getErrorMessage(error, "تعذر حفظ المنتجات.")} لم يبدأ حفظ المنتجات. قد تبقى صور مرفوعة غير مرتبطة؛ أعد المحاولة بنفس الاختيار لاستكمال الرفع.`,
         });
       }
     } finally {
+      setProgress("");
       busyRef.current = false;
       setBusy(false);
     }
@@ -778,8 +868,9 @@ function BulkImport({
           حقول الإتاحة: true أو false. العملة الافتراضية SAR.
         </p>
         <p>
-          الصور تُضاف بروابط HTTPS مباشرة في عمود image_url.
-          المنتجات الجديدة تُحفظ بحالة Pending للمراجعة.
+          اختَر صور المنتجات معًا من زر اختيار الصور. تتم المطابقة تلقائيًا
+          حسب الاسم، ويمكن تعديلها في المعاينة. الصورة المختارة تحل محل رابط
+          image_url إن وُجد. المنتجات الجديدة تُحفظ بحالة Pending للمراجعة.
         </p>
       </div>
 
@@ -812,6 +903,34 @@ function BulkImport({
           اختيار ملف CSV
         </button>
 
+        <input
+          ref={imagesInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          disabled={busy || needsReview}
+          className="hidden"
+          onChange={(event) => {
+            chooseImages(Array.from(event.target.files ?? []));
+            event.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy || needsReview}
+          onClick={() => imagesInputRef.current?.click()}
+          className={BUTTON}
+        >
+          <Upload size={18} />
+          اختيار صور المنتجات ({images.length})
+        </button>
+        {images.length > 0 && (
+          <button type="button" disabled={busy || needsReview} className={BUTTON}
+            onClick={() => { setImages([]); setImageChoices({}); setImageError(""); }}>
+            مسح الصور
+          </button>
+        )}
+
         <button
           type="button"
           disabled={blocked}
@@ -843,6 +962,12 @@ function BulkImport({
         )}
       </div>
 
+      {progress && <p role="status" dir="rtl" className="mt-3 font-bold text-blue-700">{progress}</p>}
+      {imageError && <Message error text={imageError} />}
+      {unusedImages.length > 0 && (
+        <Message error text={`اربط الصور التالية بمنتجات في المعاينة، أو أعد اختيار الصور: ${unusedImages.map((image) => image.file.name).join("، ")}`} />
+      )}
+      {repeatedImage && <Message error text="تم اختيار نفس الصورة لأكثر من منتج. اختَر صورة مختلفة لكل منتج." />}
       {fileName && (
         <p className="mt-3 break-all text-sm text-slate-500">{fileName}</p>
       )}
@@ -928,18 +1053,29 @@ function BulkImport({
                     <td className="p-3">{formatPrice(row)}</td>
                     <td className="p-3">{row.stock ?? "—"}</td>
                     <td className="p-3">
-                      {row.image_url ? (
-                        <a
-                          href={row.image_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-700 underline"
+                      {images.length > 0 && (
+                        <select
+                          aria-label={`صورة ${row.name_en}`}
+                          disabled={busy || needsReview}
+                          value={selectedImage(row)?.file.name ?? ""}
+                          onChange={(event) => setImageChoices((current) => ({
+                            ...current, [productKey(row)]: event.target.value,
+                          }))}
+                          className={`${INPUT} mb-2 min-w-[220px]`}
                         >
-                          فتح الصورة
-                        </a>
-                      ) : (
-                        "بدون صورة"
+                          <option value="">استخدام رابط CSV / بدون صورة</option>
+                          {images.map((image) => (
+                            <option key={image.file.name} value={image.file.name}>{image.file.name}</option>
+                          ))}
+                        </select>
                       )}
+                      {(selectedImage(row)?.url || row.image_url) ? (
+                        <img
+                          src={selectedImage(row)?.url || row.image_url || ""}
+                          alt={row.name_en}
+                          className="h-24 w-32 rounded-lg bg-slate-50 object-contain"
+                        />
+                      ) : "بدون صورة"}
                     </td>
                   </tr>
                 ))}
@@ -1304,4 +1440,11 @@ function getErrorMessage(error: unknown, fallback: string): string {
   }
 
   return typeof error === "string" ? error : fallback;
+}
+
+function normalizeImageName(value: string, fileName = false): string {
+  const name = fileName
+    ? value.replace(/\.(jpe?g|png|webp)$/i, "").replace(/^\d+[_\s-]+/, "")
+    : value;
+  return name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
