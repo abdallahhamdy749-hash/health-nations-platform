@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import LanguageProvider from "@/components/LanguageProvider";
 
 import "./globals.css";
+import { ADSENSE_ID, SITE_URL } from "@/lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  applicationName: "Health Nations",
+  openGraph: { type: "website", siteName: "Health Nations", title: "Health Nations Medical", description: "Medical equipment, supplies, spare parts and healthcare services." },
+  twitter: { card: "summary", title: "Health Nations Medical" },
+  verification: { google: process.env.GOOGLE_SITE_VERIFICATION || undefined },
+  other: ADSENSE_ID ? { "google-adsense-account": ADSENSE_ID } : {},
   title: {
     default: "Health Nations Medical",
     template: "%s | Health Nations Medical",
@@ -47,6 +54,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({ "@context": "https://schema.org", "@type": "Organization", name: "Health Nations Medical", url: SITE_URL }) }} />
         <LanguageProvider>
           {children}
         </LanguageProvider>
